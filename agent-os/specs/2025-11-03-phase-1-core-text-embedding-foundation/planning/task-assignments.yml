@@ -1,0 +1,21 @@
+task_assignments:
+  - task_group: "Task Group 1: Rust FFI Bug Fix"
+    assigned_subagent: "api-engineer"
+
+  - task_group: "Task Group 2: Typed Error Hierarchy"
+    assigned_subagent: "api-engineer"
+
+  - task_group: "Task Group 3: ModelConfig Class and API Extension"
+    assigned_subagent: "api-engineer"
+
+  - task_group: "Task Group 4: Test Suite Expansion"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 5: Documentation Overhaul"
+    assigned_subagent: "ui-designer"
+
+  - task_group: "Task Group 6: Benchmark Suite Creation"
+    assigned_subagent: "api-engineer"
+
+  - task_group: "Task Group 7: Quality Assurance and Polish"
+    assigned_subagent: "api-engineer"

@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="embedanythingindart API docs, for the Dart programming language.">
+  <title>embedanythingindart - Dart API docs</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="static-assets/github.css?v1">
+  <link rel="stylesheet" href="static-assets/styles.css?v1">
+  <link rel="icon" href="static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li class="self-crumb">embedanythingindart package</li>
+  </ol>
+  <div class="self-name">embedanythingindart</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+  <div id="dartdoc-main-content" class="main-content">
+      
+<section class="desc markdown">
+  <h1 id="embedanythingindart">EmbedAnythingInDart</h1>
+<p>A high-performance Dart wrapper for the Rust-based <a href="https://github.com/StarlightSearch/EmbedAnything">EmbedAnything</a> library, providing fast and efficient vector embeddings for text using state-of-the-art models from HuggingFace Hub.</p>
+<h2 id="overview">Overview</h2>
+<p>EmbedAnythingInDart brings the power of Rust's performance to Dart applications, enabling you to generate high-quality embeddings for semantic search, similarity matching, and other NLP tasks. The library leverages Dart's Native Assets system for seamless cross-platform compilation and provides an idiomatic Dart API with automatic memory management.</p>
+<p><strong>Key Benefits:</strong></p>
+<ul>
+<li>Fast Rust-powered embedding generation</li>
+<li>Automatic memory management via NativeFinalizer</li>
+<li>Support for popular BERT and Jina models from HuggingFace</li>
+<li>Batch processing for optimal throughput</li>
+<li>Cross-platform support (macOS, Linux, Windows)</li>
+<li>Zero-copy FFI for maximum performance</li>
+</ul>
+<h2 id="features">Features</h2>
+<ul>
+<li><strong>Text Embedding</strong>: Generate dense vector representations of text using BERT and Jina models</li>
+<li><strong>Batch Processing</strong>: Efficiently process multiple texts with 5-10x speedup over sequential processing</li>
+<li><strong>Automatic Memory Management</strong>: NativeFinalizer ensures native resources are cleaned up automatically</li>
+<li><strong>Flexible Configuration</strong>: Customize model loading with precision (F32/F16), normalization, and batch size options</li>
+<li><strong>Semantic Similarity</strong>: Built-in cosine similarity computation for comparing embeddings</li>
+<li><strong>Cross-Platform</strong>: Native compilation for macOS, Linux, and Windows via Dart Native Assets</li>
+<li><strong>Type-Safe Errors</strong>: Comprehensive sealed error hierarchy for robust error handling</li>
+</ul>
+<h2 id="installation">Installation</h2>
+<p>Add this to your package's <code>pubspec.yaml</code>:</p>
+<pre class="language-yaml"><code class="language-yaml">dependencies:
+  embedanythingindart:
+    git:
+      url: https://github.com/yourusername/embedanythingindart.git
+      ref: main
+</code></pre>
+<p>Then run:</p>
+<pre class="language-bash"><code class="language-bash">dart pub get
+</code></pre>
+<p><strong>Prerequisites:</strong></p>
+<ul>
+<li>Dart SDK &gt;=3.11.0</li>
+<li>Rust toolchain 1.90.0 or later</li>
+<li>Platform-specific build tools:
+<ul>
+<li><strong>macOS</strong>: Xcode Command Line Tools</li>
+<li><strong>Linux</strong>: build-essential, pkg-config</li>
+<li><strong>Windows</strong>: MSVC Build Tools</li>
+</ul>
+</li>
+</ul>
+<h2 id="quick-start">Quick Start</h2>
+<pre class="language-dart"><code class="language-dart">import 'package:embedanythingindart/embedanythingindart.dart';
+
+void main() {
+  // Load a model (first load downloads from HuggingFace, ~100-500MB)
+  final embedder = EmbedAnything.fromPretrainedHf(
+    model: EmbeddingModel.bert,
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+
+  // Generate a single embedding
+  final result = embedder.embedText('Hello, world!');
+  print('Embedding dimension: ${result.dimension}'); // 384
+
+  // Batch processing (much faster for multiple texts)
+  final texts = [
+    'Machine learning is fascinating',
+    'I love programming in Dart',
+    'The weather is nice today',
+  ];
+  final embeddings = embedder.embedTextsBatch(texts);
+
+  // Compute semantic similarity
+  final similarity = embeddings[0].cosineSimilarity(embeddings[1]);
+  print('Similarity: ${similarity.toStringAsFixed(4)}'); // 0.3245
+
+  // Cleanup (automatic via finalizer, but manual is recommended)
+  embedder.dispose();
+}
+</code></pre>
+<h2 id="supported-models">Supported Models</h2>
+<table>
+<thead>
+<tr>
+<th>Model ID</th>
+<th>Type</th>
+<th>Dimensions</th>
+<th>Speed</th>
+<th>Quality</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sentence-transformers/all-MiniLM-L6-v2</code></td>
+<td>BERT</td>
+<td>384</td>
+<td>Fast</td>
+<td>Good</td>
+<td>General purpose</td>
+</tr>
+<tr>
+<td><code>sentence-transformers/all-MiniLM-L12-v2</code></td>
+<td>BERT</td>
+<td>384</td>
+<td>Medium</td>
+<td>Better</td>
+<td>Quality-focused tasks</td>
+</tr>
+<tr>
+<td><code>jinaai/jina-embeddings-v2-small-en</code></td>
+<td>Jina</td>
+<td>512</td>
+<td>Fast</td>
+<td>Good</td>
+<td>English semantic search</td>
+</tr>
+<tr>
+<td><code>jinaai/jina-embeddings-v2-base-en</code></td>
+<td>Jina</td>
+<td>768</td>
+<td>Medium</td>
+<td>Excellent</td>
+<td>High-quality retrieval</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Model Download:</strong></p>
+<ul>
+<li>Models are downloaded from HuggingFace Hub on first use</li>
+<li>Cached locally in <code>~/.cache/huggingface/hub</code></li>
+<li>First load: 2-5 seconds (plus download time)</li>
+<li>Subsequent loads: &lt;100ms (from cache)</li>
+</ul>
+<h2 id="usage">Usage</h2>
+<h3 id="loading-a-model">Loading a Model</h3>
+<h4 id="using-predefined-configurations">Using Predefined Configurations</h4>
+<pre class="language-dart"><code class="language-dart">// BERT all-MiniLM-L6-v2 (recommended for most use cases)
+final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+
+// Jina v2-base-en (best quality)
+final embedder = EmbedAnything.fromConfig(ModelConfig.jinaV2Base());
+</code></pre>
+<h4 id="using-custom-configuration">Using Custom Configuration</h4>
+<pre class="language-dart"><code class="language-dart">final config = ModelConfig(
+  modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  modelType: EmbeddingModel.bert,
+  revision: 'main',        // Git branch/tag/commit
+  dtype: ModelDtype.f16,   // F16 for faster inference
+  normalize: true,         // Normalize to unit length
+  defaultBatchSize: 64,    // Batch size for processing
+);
+
+final embedder = EmbedAnything.fromConfig(config);
+</code></pre>
+<h4 id="legacy-api-backward-compatible">Legacy API (Backward Compatible)</h4>
+<pre class="language-dart"><code class="language-dart">final embedder = EmbedAnything.fromPretrainedHf(
+  model: EmbeddingModel.bert,
+  modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  revision: 'main',
+);
+</code></pre>
+<h3 id="generating-embeddings">Generating Embeddings</h3>
+<h4 id="single-text">Single Text</h4>
+<pre class="language-dart"><code class="language-dart">final result = embedder.embedText('The quick brown fox');
+print('Dimension: ${result.dimension}');
+print('First 5 values: ${result.values.take(5)}');
+</code></pre>
+<p><strong>Performance:</strong></p>
+<ul>
+<li>Short text (10 words): ~5-10ms</li>
+<li>Medium text (100 words): ~8-15ms</li>
+<li>Long text (500 words): ~15-30ms</li>
+<li>Very long text (&gt;512 tokens): truncated automatically</li>
+</ul>
+<h4 id="batch-processing">Batch Processing</h4>
+<pre class="language-dart"><code class="language-dart">final texts = List.generate(100, (i) =&gt; 'Text $i');
+final results = embedder.embedTextsBatch(texts);
+
+// Process results
+for (var i = 0; i &lt; results.length; i++) {
+  print('Text $i: dimension ${results[i].dimension}');
+}
+</code></pre>
+<p><strong>Performance:</strong></p>
+<ul>
+<li>Batch processing is <strong>5-10x faster</strong> than sequential</li>
+<li>Recommended batch size: 32-128 items</li>
+<li>For 100 texts: ~170ms (batch) vs ~850ms (sequential)</li>
+<li>Memory usage scales with batch size</li>
+</ul>
+<h3 id="computing-similarity">Computing Similarity</h3>
+<pre class="language-dart"><code class="language-dart">final emb1 = embedder.embedText('I love machine learning');
+final emb2 = embedder.embedText('Machine learning is great');
+final emb3 = embedder.embedText('I enjoy cooking');
+
+final sim12 = emb1.cosineSimilarity(emb2);
+final sim13 = emb1.cosineSimilarity(emb3);
+
+print('Related texts: ${sim12.toStringAsFixed(4)}');    // ~0.87
+print('Unrelated texts: ${sim13.toStringAsFixed(4)}');  // ~0.21
+</code></pre>
+<p><strong>Interpreting Similarity Scores:</strong></p>
+<ul>
+<li><strong>0.9-1.0</strong>: Nearly identical meaning</li>
+<li><strong>0.7-0.9</strong>: Highly related</li>
+<li><strong>0.5-0.7</strong>: Moderately related</li>
+<li><strong>0.3-0.5</strong>: Somewhat related</li>
+<li><strong>0.0-0.3</strong>: Weakly related or unrelated</li>
+</ul>
+<h3 id="error-handling">Error Handling</h3>
+<pre class="language-dart"><code class="language-dart">try {
+  final embedder = EmbedAnything.fromPretrainedHf(
+    model: EmbeddingModel.bert,
+    modelId: 'invalid/model',
+  );
+} on EmbedAnythingError catch (e) {
+  switch (e) {
+    case ModelNotFoundError():
+      print('Model not found: ${e.modelId}');
+      print('Check https://huggingface.co/ for valid models');
+    case InvalidConfigError():
+      print('Invalid configuration: ${e.field} - ${e.reason}');
+    case EmbeddingFailedError():
+      print('Embedding failed: ${e.reason}');
+    case MultiVectorNotSupportedError():
+      print('Multi-vector embeddings not yet supported');
+    case FFIError():
+      print('FFI error: ${e.operation}');
+  }
+}
+</code></pre>
+<h2 id="performance-characteristics">Performance Characteristics</h2>
+<p><strong>Note:</strong> Benchmarks below are representative values from Phase 1 testing. Actual performance depends on hardware, model, and text characteristics.</p>
+<h3 id="model-loading">Model Loading</h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Cold Start (first time)</th>
+<th>Warm Start (cached)</th>
+<th>Memory</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BERT all-MiniLM-L6-v2</td>
+<td>2-5 seconds + download</td>
+<td>~100ms</td>
+<td>~90MB</td>
+</tr>
+<tr>
+<td>Jina v2-base-en</td>
+<td>3-6 seconds + download</td>
+<td>~150ms</td>
+<td>~280MB</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Note:</strong> Cold start includes model download (100-500MB depending on model).</p>
+<h3 id="single-embedding-latency">Single Embedding Latency</h3>
+<table>
+<thead>
+<tr>
+<th>Text Length</th>
+<th>BERT MiniLM-L6</th>
+<th>Jina v2-base</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Short (10 words)</td>
+<td>~5-10ms</td>
+<td>~10-15ms</td>
+</tr>
+<tr>
+<td>Medium (100 words)</td>
+<td>~8-15ms</td>
+<td>~12-20ms</td>
+</tr>
+<tr>
+<td>Long (500 words)</td>
+<td>~15-30ms</td>
+<td>~20-40ms</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Platform note:</strong> Performance varies by CPU. M1/M2 Macs show ~1.5x speedup over Intel equivalents.</p>
+<h3 id="batch-throughput">Batch Throughput</h3>
+<table>
+<thead>
+<tr>
+<th>Batch Size</th>
+<th>Processing Time</th>
+<th>Speedup vs Sequential</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10 items</td>
+<td>~20-30ms</td>
+<td>~3x faster</td>
+</tr>
+<tr>
+<td>100 items</td>
+<td>~170-250ms</td>
+<td>~5x faster</td>
+</tr>
+<tr>
+<td>1000 items</td>
+<td>~1.5-2.5s</td>
+<td>~8x faster</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation:</strong> Use batch processing for 10+ items for best performance.</p>
+<h3 id="memory-usage">Memory Usage</h3>
+<ul>
+<li>Base library overhead: ~10MB</li>
+<li>Per-model memory: 45-280MB (depends on model and dtype)</li>
+<li>Per-embedding overhead: Negligible (&lt;1KB per embedding)</li>
+<li>Batch processing: Temporary memory scales linearly with batch size</li>
+</ul>
+<h2 id="memory-management">Memory Management</h2>
+<h3 id="automatic-cleanup-recommended-for-most-cases">Automatic Cleanup (Recommended for Most Cases)</h3>
+<pre class="language-dart"><code class="language-dart">void processTexts() {
+  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  final result = embedder.embedText('test');
+  // No dispose() needed - finalizer cleans up when embedder is garbage collected
+}
+</code></pre>
+<h3 id="manual-cleanup-recommended-for-long-running-applications">Manual Cleanup (Recommended for Long-Running Applications)</h3>
+<pre class="language-dart"><code class="language-dart">void processTexts() {
+  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  try {
+    final result = embedder.embedText('test');
+    // Use result...
+  } finally {
+    embedder.dispose(); // Immediate cleanup
+  }
+}
+</code></pre>
+<h3 id="best-practices">Best Practices</h3>
+<ul>
+<li><strong>Manual <code>dispose()</code></strong> for long-running services or apps with many embedders</li>
+<li><strong>Automatic cleanup</strong> for short-lived scripts or infrequent usage</li>
+<li><strong>Reuse embedders</strong> instead of creating many instances</li>
+<li><strong>Use batch processing</strong> to minimize overhead</li>
+<li><strong>Avoid creating embedders in loops</strong> - create once, reuse many times</li>
+</ul>
+<h2 id="platform-support">Platform Support</h2>
+<h3 id="supported-platforms">Supported Platforms</h3>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Architecture</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>macOS</td>
+<td>x64 (Intel)</td>
+<td>Supported</td>
+</tr>
+<tr>
+<td>macOS</td>
+<td>ARM64 (Apple Silicon)</td>
+<td>Supported</td>
+</tr>
+<tr>
+<td>Linux</td>
+<td>x64</td>
+<td>Supported</td>
+</tr>
+<tr>
+<td>Linux</td>
+<td>ARM64</td>
+<td>Supported</td>
+</tr>
+<tr>
+<td>Windows</td>
+<td>x64</td>
+<td>Supported</td>
+</tr>
+</tbody>
+</table>
+<h3 id="platform-requirements">Platform Requirements</h3>
+<p><strong>macOS:</strong></p>
+<ul>
+<li>macOS 11.0 or later</li>
+<li>Xcode Command Line Tools: <code>xcode-select --install</code></li>
+</ul>
+<p><strong>Linux:</strong></p>
+<ul>
+<li>Debian/Ubuntu: <code>apt install build-essential pkg-config</code></li>
+<li>Fedora/RHEL: <code>dnf install gcc pkg-config</code></li>
+<li>Arch: <code>pacman -S base-devel</code></li>
+</ul>
+<p><strong>Windows:</strong></p>
+<ul>
+<li>Visual Studio 2019 or later with C++ Build Tools</li>
+<li>Or Windows SDK + MSVC from VS Build Tools</li>
+</ul>
+<h3 id="first-build">First Build</h3>
+<p>The first build compiles 488 Rust crates and will take <strong>5-15 minutes</strong> depending on your hardware. Subsequent builds are incremental and much faster (&lt;30 seconds).</p>
+<pre class="language-bash"><code class="language-bash"># First build - patience required!
+dart run --enable-experiment=native-assets example/embedanythingindart_example.dart
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p>For detailed troubleshooting, see <a href="TROUBLESHOOTING.md">TROUBLESHOOTING.md</a>.</p>
+<p><strong>Common issues:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Quick Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First build extremely slow</td>
+<td>Expected - compiling 488 crates takes 5-15 minutes</td>
+</tr>
+<tr>
+<td>Model download fails</td>
+<td>Check internet connection, set HF_TOKEN for private models</td>
+</tr>
+<tr>
+<td>Asset not found error</td>
+<td>Verify asset name consistency in Cargo.toml, build.dart, bindings.dart</td>
+</tr>
+<tr>
+<td>Out of memory</td>
+<td>Reduce batch size or use F16 dtype</td>
+</tr>
+<tr>
+<td>Tests fail</td>
+<td>Ensure internet connection for model downloads</td>
+</tr>
+</tbody>
+</table>
+<h2 id="api-reference">API Reference</h2>
+<p>Full API documentation is available via dartdoc:</p>
+<pre class="language-bash"><code class="language-bash">dart doc
+dart pub global activate dhttpd
+dhttpd --path doc/api
+</code></pre>
+<p>Then open http://localhost:8080 in your browser.</p>
+<p><strong>Core Classes:</strong></p>
+<ul>
+<li><a href="lib/src/embedder.dart"><code>EmbedAnything</code></a> - Main embedder interface</li>
+<li><a href="lib/src/embedding_result.dart"><code>EmbeddingResult</code></a> - Embedding vector result</li>
+<li><a href="lib/src/model_config.dart"><code>ModelConfig</code></a> - Model configuration</li>
+<li><a href="lib/src/models.dart"><code>EmbeddingModel</code></a> - Model architecture enum</li>
+<li><a href="lib/src/models.dart"><code>ModelDtype</code></a> - Model data type enum</li>
+<li><a href="lib/src/errors.dart"><code>EmbedAnythingError</code></a> - Error hierarchy</li>
+</ul>
+<h2 id="contributing">Contributing</h2>
+<p>Contributions are welcome! Please follow these guidelines:</p>
+<h3 id="development-setup">Development Setup</h3>
+<pre class="language-bash"><code class="language-bash"># Clone the repository
+git clone https://github.com/yourusername/embedanythingindart.git
+cd embedanythingindart
+
+# Install dependencies
+dart pub get
+
+# Install Rust targets
+cd rust &amp;&amp; rustup show
+
+# Run tests
+dart test --enable-experiment=native-assets
+
+# Run analyzer
+dart analyze
+
+# Format code
+dart format .
+</code></pre>
+<h3 id="testing">Testing</h3>
+<pre class="language-bash"><code class="language-bash"># Run all tests
+dart test --enable-experiment=native-assets
+
+# Run specific test file
+dart test --enable-experiment=native-assets test/model_config_test.dart
+
+# Run with coverage
+dart test --enable-experiment=native-assets --coverage=coverage
+</code></pre>
+<h3 id="code-standards">Code Standards</h3>
+<ul>
+<li>Follow <a href="https://dart.dev/effective-dart">Effective Dart</a> guidelines</li>
+<li>Add dartdoc comments to all public APIs</li>
+<li>Ensure <code>dart analyze</code> passes with zero issues</li>
+<li>Ensure <code>cargo clippy</code> passes with zero warnings</li>
+<li>Write tests for new features</li>
+<li>Update CHANGELOG.md with changes</li>
+</ul>
+<h3 id="build-system">Build System</h3>
+<p>This project uses Dart's Native Assets system. Key files:</p>
+<ul>
+<li><code>hook/build.dart</code> - Native asset build hook</li>
+<li><code>rust/Cargo.toml</code> - Rust crate configuration</li>
+<li><code>rust-toolchain.toml</code> - Rust version pinning</li>
+</ul>
+<p><strong>Asset name consistency is critical:</strong></p>
+<ul>
+<li><code>rust/Cargo.toml</code>: <code>name = "embedanything_dart"</code></li>
+<li><code>hook/build.dart</code>: <code>assetName: 'embedanything_dart'</code></li>
+<li><code>lib/src/ffi/bindings.dart</code>: <code>assetId: 'package:embedanythingindart/embedanything_dart'</code></li>
+</ul>
+<h2 id="license">License</h2>
+<p>This project is licensed under the MIT License - see the LICENSE file for details.</p>
+<p>The underlying EmbedAnything Rust library is licensed under the Apache License 2.0.</p>
+<h2 id="acknowledgments">Acknowledgments</h2>
+<ul>
+<li><a href="https://github.com/StarlightSearch/EmbedAnything">EmbedAnything</a> - The Rust library this wraps</li>
+<li><a href="https://huggingface.co/">HuggingFace</a> - For hosting the embedding models</li>
+<li><a href="https://www.sbert.net/">sentence-transformers</a> - For the BERT models</li>
+<li><a href="https://jina.ai/">Jina AI</a> - For the Jina embedding models</li>
+</ul>
+<h2 id="related-projects">Related Projects</h2>
+<ul>
+<li><a href="https://github.com/yourusername/surrealdartb">surrealdartb</a> - SurrealDB client for Dart with vector support</li>
+<li><a href="https://github.com/StarlightSearch/EmbedAnything">EmbedAnything</a> - Upstream Rust library</li>
+<li><a href="https://github.com/huggingface/candle">Candle</a> - Rust ML framework powering EmbedAnything</li>
+</ul>
+<h2 id="roadmap">Roadmap</h2>
+<p><strong>Phase 2: Production Readiness</strong></p>
+<ul>
+<li>CI/CD pipeline with multi-platform testing</li>
+<li>Automated release process</li>
+<li>Performance optimizations</li>
+<li>Security audit</li>
+</ul>
+<p><strong>Phase 3: Multi-Modal Expansion</strong></p>
+<ul>
+<li>PDF, DOCX, Markdown file embedding</li>
+<li>Image embedding (CLIP, ColPali)</li>
+<li>Audio embedding (Whisper)</li>
+</ul>
+<p><strong>Phase 4: Advanced Features</strong></p>
+<ul>
+<li>Multi-vector embedding support (ColBERT)</li>
+<li>GPU acceleration (CUDA, Metal)</li>
+<li>Model quantization (INT8, INT4)</li>
+<li>Custom tokenizer configuration</li>
+</ul>
+<p><strong>Phase 5: Ecosystem Integration</strong></p>
+<ul>
+<li>Vector database adapters (Pinecone, Weaviate, Qdrant)</li>
+<li>Cloud provider embeddings (OpenAI, Cohere)</li>
+<li>Mobile platform support (iOS, Android)</li>
+</ul>
+<hr>
+<p><strong>Questions or Issues?</strong></p>
+<ul>
+<li>Open an issue on <a href="https://github.com/yourusername/embedanythingindart/issues">GitHub</a></li>
+<li>Check <a href="TROUBLESHOOTING.md">TROUBLESHOOTING.md</a> for common problems</li>
+<li>Review the <a href="doc/api/index.html">API documentation</a></li>
+</ul>
+</section>
+
+
+      <section class="summary">
+          <h2>Libraries</h2>
+        <dl>
+          <dt id="embedanythingindart">
+  <span class="name"><a href="embedanythingindart/">embedanythingindart</a></span> 
+
+</dt>
+<dd>EmbedAnythingInDart: Dart wrapper for the EmbedAnything embedding library
+</dd>
+
+        </dl>
+      </section>
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li class="self-crumb">embedanythingindart package</li>
+</ol>
+
+    <h5 class="hidden-xs"><span class="package-name">embedanythingindart</span> <span class="package-kind">package</span></h5>
+    <ol>
+      <li class="section-title">Libraries</li>
+      <li><a href="embedanythingindart/">embedanythingindart</a></li>
+</ol>
+
+  </div>
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+  </div>
+</main>
+<footer>
+  <span class="no-break">
+    embedanythingindart
+      0.0.1
+  </span>
+  
+</footer>
+
+
+<script src="static-assets/highlight.pack.js?v1"></script>
+<script src="static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+

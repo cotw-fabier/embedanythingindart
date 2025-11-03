@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="API docs for the ModelConfig class from the embedanythingindart library, for the Dart programming language.">
+  <title>ModelConfig class - embedanythingindart library - Dart API</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="../static-assets/github.css?v1">
+  <link rel="stylesheet" href="../static-assets/styles.css?v1">
+  <link rel="icon" href="../static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="../" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li><a href="../index.html">embedanythingindart</a></li>
+    <li><a href="../embedanythingindart/">embedanythingindart.dart</a></li>
+    <li class="self-crumb">ModelConfig class</li>
+  </ol>
+  <div class="self-name">ModelConfig</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+<div
+    id="dartdoc-main-content"
+    class="main-content"
+    data-above-sidebar="embedanythingindart&#47;embedanythingindart-library-sidebar.html"
+    data-below-sidebar="embedanythingindart&#47;ModelConfig-class-sidebar.html">
+    <div>
+<h1><span class="kind-class">ModelConfig</span> class 
+ 
+</h1></div>
+
+    
+<section class="desc markdown">
+  <p>Configuration for loading embedding models from HuggingFace Hub</p>
+<p>This class provides a flexible way to configure model loading with
+sensible defaults while allowing customization for advanced use cases.</p>
+<p>Example:</p>
+<pre class="language-dart"><code class="language-dart">// Use predefined configuration
+final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+
+// Create custom configuration
+final config = ModelConfig(
+  modelId: 'custom/model',
+  modelType: EmbeddingModel.bert,
+  revision: 'v1.0',
+  dtype: ModelDtype.f16,
+  defaultBatchSize: 64,
+);
+final embedder = EmbedAnything.fromConfig(config);
+</code></pre>
+</section>
+
+
+
+    
+  <section class="summary offset-anchor" id="constructors">
+    <h2>Constructors</h2>
+    <dl class="constructor-summary-list">
+        <dt id="ModelConfig.new" class="callable">
+          <span class="name"><a href="../embedanythingindart/ModelConfig/ModelConfig.html">ModelConfig</a></span><span class="signature">({<span class="parameter" id="-param-modelId"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">modelId</span>, </span><span class="parameter" id="-param-modelType"><span>required</span> <span class="type-annotation"><a href="../embedanythingindart/EmbeddingModel.html">EmbeddingModel</a></span> <span class="parameter-name">modelType</span>, </span><span class="parameter" id="-param-revision"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">revision</span> = <span class="default-value">&#39;main&#39;</span>, </span><span class="parameter" id="-param-dtype"><span class="type-annotation"><a href="../embedanythingindart/ModelDtype.html">ModelDtype</a></span> <span class="parameter-name">dtype</span> = <span class="default-value">ModelDtype.f32</span>, </span><span class="parameter" id="-param-normalize"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">normalize</span> = <span class="default-value">true</span>, </span><span class="parameter" id="-param-defaultBatchSize"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">defaultBatchSize</span> = <span class="default-value">32</span></span>})</span>
+        </dt>
+        <dd>
+          Creates a new ModelConfig with required and optional parameters
+            <div class="constructor-modifier features">const</div>
+        </dd>
+        <dt id="ModelConfig.bertMiniLML6" class="callable">
+          <span class="name"><a href="../embedanythingindart/ModelConfig/ModelConfig.bertMiniLML6.html">ModelConfig.bertMiniLML6</a></span><span class="signature">()</span>
+        </dt>
+        <dd>
+          Predefined configuration for BERT all-MiniLM-L6-v2
+            <div class="constructor-modifier features">factory</div>
+        </dd>
+        <dt id="ModelConfig.bertMiniLML12" class="callable">
+          <span class="name"><a href="../embedanythingindart/ModelConfig/ModelConfig.bertMiniLML12.html">ModelConfig.bertMiniLML12</a></span><span class="signature">()</span>
+        </dt>
+        <dd>
+          Predefined configuration for BERT all-MiniLM-L12-v2
+            <div class="constructor-modifier features">factory</div>
+        </dd>
+        <dt id="ModelConfig.jinaV2Base" class="callable">
+          <span class="name"><a href="../embedanythingindart/ModelConfig/ModelConfig.jinaV2Base.html">ModelConfig.jinaV2Base</a></span><span class="signature">()</span>
+        </dt>
+        <dd>
+          Predefined configuration for Jina v2-base-en
+            <div class="constructor-modifier features">factory</div>
+        </dd>
+        <dt id="ModelConfig.jinaV2Small" class="callable">
+          <span class="name"><a href="../embedanythingindart/ModelConfig/ModelConfig.jinaV2Small.html">ModelConfig.jinaV2Small</a></span><span class="signature">()</span>
+        </dt>
+        <dd>
+          Predefined configuration for Jina v2-small-en
+            <div class="constructor-modifier features">factory</div>
+        </dd>
+    </dl>
+  </section>
+    
+  <section
+      class="summary offset-anchor"
+      id="instance-properties">
+    <h2>Properties</h2>
+    <dl class="properties">
+        <dt id="defaultBatchSize" class="property">
+  <span class="name"><a href="../embedanythingindart/ModelConfig/defaultBatchSize.html">defaultBatchSize</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  
+
+</dt>
+<dd>
+  Default batch size for batch operations
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="dtype" class="property">
+  <span class="name"><a href="../embedanythingindart/ModelConfig/dtype.html">dtype</a></span>
+  <span class="signature">&#8594; <a href="../embedanythingindart/ModelDtype.html">ModelDtype</a></span>
+  
+
+</dt>
+<dd>
+  Data type for model weights
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="hashCode" class="property">
+  <span class="name"><a href="../embedanythingindart/ModelConfig/hashCode.html">hashCode</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  
+
+</dt>
+<dd>
+  The hash code for this object.
+  <div class="features"><span class="feature">no setter</span><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="modelId" class="property">
+  <span class="name"><a href="../embedanythingindart/ModelConfig/modelId.html">modelId</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  
+
+</dt>
+<dd>
+  HuggingFace model identifier (e.g., 'sentence-transformers/all-MiniLM-L6-v2')
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="modelType" class="property">
+  <span class="name"><a href="../embedanythingindart/ModelConfig/modelType.html">modelType</a></span>
+  <span class="signature">&#8594; <a href="../embedanythingindart/EmbeddingModel.html">EmbeddingModel</a></span>
+  
+
+</dt>
+<dd>
+  Model architecture type (BERT or Jina)
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="normalize" class="property">
+  <span class="name"><a href="../embedanythingindart/ModelConfig/normalize.html">normalize</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  
+
+</dt>
+<dd>
+  Whether to normalize embeddings to unit length
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="revision" class="property">
+  <span class="name"><a href="../embedanythingindart/ModelConfig/revision.html">revision</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  
+
+</dt>
+<dd>
+  Git revision (branch, tag, or commit hash)
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="runtimeType" class="property inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/runtimeType.html">runtimeType</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Type-class.html">Type</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  A representation of the runtime type of the object.
+  <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+    </dl>
+  </section>
+
+    
+  <section
+      class="summary offset-anchor"
+      id="instance-methods">
+    <h2>Methods</h2>
+    <dl class="callables">
+        <dt id="noSuchMethod" class="callable inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/noSuchMethod.html">noSuchMethod</a></span><span class="signature">(<wbr><span class="parameter" id="noSuchMethod-param-invocation"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Invocation-class.html">Invocation</a></span> <span class="parameter-name">invocation</span></span>)
+    <span class="returntype parameter">&#8594; dynamic</span>
+  </span>
+  
+
+</dt>
+<dd class="inherited">
+  Invoked when a nonexistent method or property is accessed.
+  <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="toString" class="callable">
+  <span class="name"><a href="../embedanythingindart/ModelConfig/toString.html">toString</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  A string representation of this object.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="validate" class="callable">
+  <span class="name"><a href="../embedanythingindart/ModelConfig/validate.html">validate</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Validates the configuration parameters
+  
+
+</dd>
+
+    </dl>
+  </section>
+    
+  <section
+      class="summary offset-anchor"
+      id="operators">
+    <h2>Operators</h2>
+    <dl class="callables">
+        <dt id="operator ==" class="callable">
+  <span class="name"><a href="../embedanythingindart/ModelConfig/operator_equals.html">operator ==</a></span><span class="signature">(<wbr><span class="parameter" id="==-param-other"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></span> <span class="parameter-name">other</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  The equality operator.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+    </dl>
+  </section>
+    
+    
+    
+
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li><a href="../index.html">embedanythingindart</a></li>
+    <li><a href="../embedanythingindart/">embedanythingindart</a></li>
+    <li class="self-crumb">ModelConfig class</li>
+</ol>
+
+    <h5>embedanythingindart library</h5>
+    <div id="dartdoc-sidebar-left-content"></div>
+  </div>
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+  </div><!--/.sidebar-offcanvas-->
+</main>
+<footer>
+  <span class="no-break">
+    embedanythingindart
+      0.0.1
+  </span>
+  
+</footer>
+
+
+<script src="../static-assets/highlight.pack.js?v1"></script>
+<script src="../static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+

@@ -1,0 +1,15 @@
+# Test configuration for embedanythingindart
+
+# Define tags for test categorization
+tags:
+  # Slow tests that take significant time to execute
+  slow:
+    description: Tests that take significant time (>5 seconds)
+
+  # Memory-intensive tests
+  memory:
+    description: Tests that stress memory management
+
+  # Garbage collection related tests
+  gc:
+    description: Tests that rely on garbage collection behavior

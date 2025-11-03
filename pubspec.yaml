@@ -1,0 +1,21 @@
+name: embedanythingindart
+description: A wrapper for the popular embedanything rust crate
+version: 0.0.1
+# repository: https://github.com/my_org/my_repo
+
+environment:
+  sdk: ^3.11.0-36.0.dev
+
+# Add regular dependencies here.
+dependencies:
+  ffi: ^2.1.0
+
+dev_dependencies:
+  hooks: ^0.20.4
+  lints: ^6.0.0
+  native_toolchain_rs:
+    git:
+      url: https://github.com/GregoryConrad/native_toolchain_rs
+      ref: main
+      path: native_toolchain_rs
+  test: ^1.25.6

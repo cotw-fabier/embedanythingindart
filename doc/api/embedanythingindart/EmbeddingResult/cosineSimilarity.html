@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="API docs for the cosineSimilarity method from the EmbeddingResult class, for the Dart programming language.">
+  <title>cosineSimilarity method - EmbeddingResult class - embedanythingindart library - Dart API</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="../../static-assets/github.css?v1">
+  <link rel="stylesheet" href="../../static-assets/styles.css?v1">
+  <link rel="icon" href="../../static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="../../" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li><a href="../../index.html">embedanythingindart</a></li>
+    <li><a href="../../embedanythingindart/">embedanythingindart.dart</a></li>
+    <li><a href="../../embedanythingindart/EmbeddingResult-class.html">EmbeddingResult</a></li>
+    <li class="self-crumb">cosineSimilarity method</li>
+  </ol>
+  <div class="self-name">cosineSimilarity</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+<div
+    id="dartdoc-main-content"
+    class="main-content"
+    data-above-sidebar="embedanythingindart&#47;EmbeddingResult-class-sidebar.html"
+    data-below-sidebar="">
+    <div>
+<h1><span class="kind-method">cosineSimilarity</span> method 
+</h1></div>
+
+    <section class="multi-line-signature">
+      
+<span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/double-class.html">double</a></span>
+<span class="name ">cosineSimilarity</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="cosineSimilarity-param-other"><span class="type-annotation"><a href="../../embedanythingindart/EmbeddingResult-class.html">EmbeddingResult</a></span> <span class="parameter-name">other</span></span></li>
+</ol>)
+
+      
+
+    </section>
+    
+<section class="desc markdown">
+  <p>Compute cosine similarity with another embedding.</p>
+<p>Returns a value between -1 and 1, where:</p>
+<ul>
+<li><strong>1.0</strong> means the embeddings are identical (maximum similarity)</li>
+<li><strong>0.0</strong> means the embeddings are orthogonal (no similarity)</li>
+<li><strong>-1.0</strong> means the embeddings are opposite (maximum dissimilarity)</li>
+</ul>
+<p>In practice, similarity scores for natural language are typically
+in the range <code>0.0, 1.0</code>, with higher values indicating greater
+semantic similarity.</p>
+<p>Throws <a href="https://api.flutter.dev/flutter/dart-core/ArgumentError-class.html">ArgumentError</a> if the embeddings have different dimensions.</p>
+<p>Example:</p>
+<pre class="language-dart"><code class="language-dart">final emb1 = embedder.embedText('I love machine learning');
+final emb2 = embedder.embedText('Machine learning is great');
+final emb3 = embedder.embedText('I enjoy cooking pasta');
+
+final sim12 = emb1.cosineSimilarity(emb2);
+final sim13 = emb1.cosineSimilarity(emb3);
+
+print('Related texts similarity: ${sim12.toStringAsFixed(4)}');
+// Output: Related texts similarity: 0.8742
+
+print('Unrelated texts similarity: ${sim13.toStringAsFixed(4)}');
+// Output: Unrelated texts similarity: 0.2156
+</code></pre>
+<p>Performance note:
+This operation is O(n) where n is the dimension. For typical
+embedding dimensions (384-768), this completes in microseconds.</p>
+<p>See also:</p>
+<ul>
+<li><a href="../../embedanythingindart/EmbeddingResult/dimension.html">dimension</a> for the embedding vector length</li>
+</ul>
+</section>
+
+
+    
+<section class="summary source-code" id="source">
+  <h2><span>Implementation</span></h2>
+  <pre class="language-dart"><code class="language-dart">double cosineSimilarity(EmbeddingResult other) {
+  if (dimension != other.dimension) {
+    throw ArgumentError(
+      &#39;Cannot compute similarity between embeddings of different dimensions &#39;
+      &#39;($dimension vs ${other.dimension})&#39;,
+    );
+  }
+
+  double dotProduct = 0.0;
+  double normA = 0.0;
+  double normB = 0.0;
+
+  for (int i = 0; i &lt; dimension; i++) {
+    dotProduct += values[i] * other.values[i];
+    normA += values[i] * values[i];
+    normB += other.values[i] * other.values[i];
+  }
+
+  final magnitude = (normA * normB);
+  if (magnitude == 0.0) return 0.0;
+
+  return dotProduct &#47; magnitude.abs();
+}</code></pre>
+</section>
+
+
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li><a href="../../index.html">embedanythingindart</a></li>
+    <li><a href="../../embedanythingindart/">embedanythingindart</a></li>
+    <li><a href="../../embedanythingindart/EmbeddingResult-class.html">EmbeddingResult</a></li>
+    <li class="self-crumb">cosineSimilarity method</li>
+</ol>
+
+    <h5>EmbeddingResult class</h5>
+    <div id="dartdoc-sidebar-left-content"></div>
+  </div><!--/.sidebar-offcanvas-->
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+</div><!--/.sidebar-offcanvas-->
+</main>
+<footer>
+  <span class="no-break">
+    embedanythingindart
+      0.0.1
+  </span>
+  
+</footer>
+
+
+<script src="../../static-assets/highlight.pack.js?v1"></script>
+<script src="../../static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+
