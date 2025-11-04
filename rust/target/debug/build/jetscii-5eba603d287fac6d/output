@@ -1,2 +1,0 @@
-cargo:rustc-cfg=jetscii_sse4_2="no"
-cargo:rerun-if-changed=build.rs
