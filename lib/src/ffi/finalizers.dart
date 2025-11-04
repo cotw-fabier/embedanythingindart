@@ -41,3 +41,45 @@ void manualFreeEmbeddingBatch(Pointer<CTextEmbeddingBatch> ptr) {
     freeEmbeddingBatch(ptr);
   }
 }
+
+/// Manually free an embed data instance (Phase 3)
+///
+/// Frees a single CEmbedData including its embedding values, text, and metadata.
+/// This function should be called for each CEmbedData that is no longer needed.
+///
+/// Note: If the CEmbedData is part of a CEmbedDataBatch, prefer using
+/// manualFreeEmbedDataBatch which will free all items in the batch.
+void manualFreeEmbedData(Pointer<CEmbedData> ptr) {
+  if (ptr != nullptr) {
+    freeEmbedData(ptr);
+  }
+}
+
+/// Manually free an embed data batch instance (Phase 3)
+///
+/// Frees a CEmbedDataBatch and all contained CEmbedData items.
+/// This includes freeing all embedding vectors, text strings, and metadata
+/// for each item in the batch.
+///
+/// Behavior and Timing:
+/// - Call this function after copying all needed data from the batch to Dart
+/// - The batch and all items are freed immediately
+/// - Do NOT access the batch pointer after calling this function
+/// - Safe to call with nullptr (no-op)
+///
+/// Example:
+/// ```dart
+/// final batch = embedFile(embedder, filePath, config);
+/// try {
+///   // Process batch and copy data to Dart
+///   final chunks = convertBatchToChunks(batch);
+/// } finally {
+///   // Always free in finally block
+///   manualFreeEmbedDataBatch(batch);
+/// }
+/// ```
+void manualFreeEmbedDataBatch(Pointer<CEmbedDataBatch> ptr) {
+  if (ptr != nullptr) {
+    freeEmbedDataBatch(ptr);
+  }
+}

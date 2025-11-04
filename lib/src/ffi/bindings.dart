@@ -62,7 +62,7 @@ external Pointer<CEmbedder> embedderFromPretrainedHf(
 );
 
 // ============================================================================
-// Embedding Operations
+// Embedding Operations - Text
 // ============================================================================
 
 /// Embed a single text query
@@ -105,6 +105,77 @@ external Pointer<CTextEmbeddingBatch> embedTextsBatch(
 );
 
 // ============================================================================
+// Embedding Operations - File & Directory (Phase 3)
+// ============================================================================
+
+/// Callback typedef for directory streaming
+///
+/// Called from Rust with batches of embeddings during directory processing.
+/// Parameters:
+/// - batch: Pointer to CEmbedDataBatch containing the embeddings
+/// - context: User data pointer passed through from embedDirectoryStream
+typedef StreamCallbackType = Void Function(
+    Pointer<CEmbedDataBatch>, Pointer<Void>);
+
+/// Embed a single file with chunking
+///
+/// Parameters:
+/// - embedder: Pointer to CEmbedder
+/// - filePath: Path to file to embed
+/// - config: Pointer to CTextEmbedConfig with chunking parameters
+///
+/// Returns: Pointer to CEmbedDataBatch or nullptr on failure
+@Native<
+    Pointer<CEmbedDataBatch> Function(
+      Pointer<CEmbedder>,
+      Pointer<Utf8>,
+      Pointer<CTextEmbedConfig>,
+    )>(
+  symbol: 'embed_file',
+  assetId: _assetId,
+)
+external Pointer<CEmbedDataBatch> embedFile(
+  Pointer<CEmbedder> embedder,
+  Pointer<Utf8> filePath,
+  Pointer<CTextEmbedConfig> config,
+);
+
+/// Embed all files in a directory with streaming callback
+///
+/// Parameters:
+/// - embedder: Pointer to CEmbedder
+/// - directoryPath: Path to directory to embed
+/// - extensions: NULL-terminated array of extension strings, or nullptr for all
+/// - extensionsCount: Number of extensions (0 if extensions is nullptr)
+/// - config: Pointer to CTextEmbedConfig with chunking parameters
+/// - callback: Function to call with each batch of embeddings
+/// - callbackContext: User data passed through to callback
+///
+/// Returns: 0 on success, -1 on failure
+@Native<
+    Int32 Function(
+      Pointer<CEmbedder>,
+      Pointer<Utf8>,
+      Pointer<Pointer<Utf8>>,
+      Size,
+      Pointer<CTextEmbedConfig>,
+      Pointer<NativeFunction<StreamCallbackType>>,
+      Pointer<Void>,
+    )>(
+  symbol: 'embed_directory_stream',
+  assetId: _assetId,
+)
+external int embedDirectoryStream(
+  Pointer<CEmbedder> embedder,
+  Pointer<Utf8> directoryPath,
+  Pointer<Pointer<Utf8>> extensions,
+  int extensionsCount,
+  Pointer<CTextEmbedConfig> config,
+  Pointer<NativeFunction<StreamCallbackType>> callback,
+  Pointer<Void> callbackContext,
+);
+
+// ============================================================================
 // Memory Management
 // ============================================================================
 
@@ -115,16 +186,30 @@ external Pointer<CTextEmbeddingBatch> embedTextsBatch(
 )
 external void embedderFree(Pointer<CEmbedder> embedder);
 
-/// Free a single embedding
+/// Free a single text embedding
 @Native<Void Function(Pointer<CTextEmbedding>)>(
   symbol: 'free_embedding',
   assetId: _assetId,
 )
 external void freeEmbedding(Pointer<CTextEmbedding> embedding);
 
-/// Free a batch of embeddings
+/// Free a batch of text embeddings
 @Native<Void Function(Pointer<CTextEmbeddingBatch>)>(
   symbol: 'free_embedding_batch',
   assetId: _assetId,
 )
 external void freeEmbeddingBatch(Pointer<CTextEmbeddingBatch> batch);
+
+/// Free a single embed data instance (Phase 3)
+@Native<Void Function(Pointer<CEmbedData>)>(
+  symbol: 'free_embed_data',
+  assetId: _assetId,
+)
+external void freeEmbedData(Pointer<CEmbedData> data);
+
+/// Free a batch of embed data instances (Phase 3)
+@Native<Void Function(Pointer<CEmbedDataBatch>)>(
+  symbol: 'free_embed_data_batch',
+  assetId: _assetId,
+)
+external void freeEmbedDataBatch(Pointer<CEmbedDataBatch> batch);

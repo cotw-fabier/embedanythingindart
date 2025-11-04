@@ -895,6 +895,7 @@ dependencies = [
  "embed_anything",
  "libc",
  "once_cell",
+ "serde_json",
  "tokio",
 ]
 

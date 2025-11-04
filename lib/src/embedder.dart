@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 
+import 'chunk_embedding.dart';
 import 'embedding_result.dart';
 import 'ffi/bindings.dart' as ffi;
-import 'ffi/finalizers.dart';
 import 'ffi/ffi_utils.dart';
 import 'ffi/native_types.dart';
 import 'model_config.dart';
@@ -259,6 +260,296 @@ class EmbedAnything {
       }
       malloc.free(cStringsArray);
     }
+  }
+
+  /// Embed a single file with automatic chunking
+  ///
+  /// Processes a document file and returns all text chunks with their embeddings
+  /// and metadata. The file is automatically chunked based on the configuration
+  /// parameters.
+  ///
+  /// Supported file formats: PDF, TXT, MD, DOCX, HTML
+  ///
+  /// Parameters:
+  /// - [filePath]: Path to the file to embed
+  /// - [chunkSize]: Maximum characters per chunk (default: 1000)
+  /// - [overlapRatio]: Overlap between chunks 0.0-1.0 (default: 0.0)
+  /// - [batchSize]: Batch size for embedding generation (default: 32)
+  ///
+  /// Returns a [Future] that completes with a list of [ChunkEmbedding]s,
+  /// one for each chunk of the file. Each chunk includes the embedding,
+  /// text content, and metadata (file path, chunk index, page number for PDFs).
+  ///
+  /// Throws:
+  /// - [FileNotFoundError] if the file does not exist
+  /// - [UnsupportedFileFormatError] if the file format is not supported
+  /// - [FileReadError] if there's a permission or I/O error reading the file
+  /// - [EmbeddingFailedError] if embedding generation fails
+  /// - [StateError] if the embedder has been disposed
+  ///
+  /// Example:
+  /// ```dart
+  /// final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  /// try {
+  ///   final chunks = await embedder.embedFile(
+  ///     'document.pdf',
+  ///     chunkSize: 500,
+  ///     overlapRatio: 0.1,
+  ///   );
+  ///
+  ///   for (final chunk in chunks) {
+  ///     print('File: ${chunk.filePath}');
+  ///     print('Page: ${chunk.page}');
+  ///     print('Chunk ${chunk.chunkIndex}: ${chunk.text?.substring(0, 50)}...');
+  ///   }
+  /// } finally {
+  ///   embedder.dispose();
+  /// }
+  /// ```
+  Future<List<ChunkEmbedding>> embedFile(
+    String filePath, {
+    int chunkSize = 1000,
+    double overlapRatio = 0.0,
+    int batchSize = 32,
+  }) async {
+    _checkDisposed();
+
+    // Allocate config struct
+    final config = allocateTextEmbedConfig(
+      chunkSize: chunkSize,
+      overlapRatio: overlapRatio,
+      batchSize: batchSize,
+      bufferSize: 100, // Default buffer size
+    );
+
+    // Convert file path to C string
+    final filePathPtr = stringToCString(filePath);
+
+    try {
+      // Call FFI function
+      final batchPtr = ffi.embedFile(_handle, filePathPtr, config);
+
+      if (batchPtr == nullptr) {
+        throwLastError('Failed to embed file: $filePath');
+      }
+
+      try {
+        final batch = batchPtr.ref;
+        final results = <ChunkEmbedding>[];
+
+        // Convert each CEmbedData to ChunkEmbedding
+        for (int i = 0; i < batch.count; i++) {
+          final embedData = batch.items[i];
+          results.add(_cEmbedDataToChunkEmbedding(embedData));
+        }
+
+        return results;
+      } finally {
+        ffi.freeEmbedDataBatch(batchPtr);
+      }
+    } finally {
+      // Free allocated memory
+      freeCString(filePathPtr);
+      calloc.free(config);
+    }
+  }
+
+  /// Embed all files in a directory (streaming)
+  ///
+  /// Processes all files in a directory and returns a [Stream] that yields
+  /// [ChunkEmbedding]s as they are generated. This allows processing large
+  /// directories without loading all embeddings into memory at once.
+  ///
+  /// Files that fail to process will emit stream errors but won't stop
+  /// the processing of other files.
+  ///
+  /// Supported file formats: PDF, TXT, MD, DOCX, HTML
+  ///
+  /// Parameters:
+  /// - [directoryPath]: Path to the directory to embed
+  /// - [extensions]: Optional list of file extensions to include (e.g., ['.pdf', '.txt']).
+  ///   If null, all supported file types will be processed.
+  /// - [chunkSize]: Maximum characters per chunk (default: 1000)
+  /// - [overlapRatio]: Overlap between chunks 0.0-1.0 (default: 0.0)
+  /// - [batchSize]: Batch size for embedding generation (default: 32)
+  ///
+  /// Returns a [Stream] of [ChunkEmbedding]s that yields results incrementally
+  /// as files are processed.
+  ///
+  /// Throws:
+  /// - [FileNotFoundError] if the directory does not exist
+  /// - [FileReadError] if there's a permission error accessing the directory
+  ///
+  /// Stream errors:
+  /// - Individual file processing errors are emitted to the stream but don't stop processing
+  ///
+  /// Example:
+  /// ```dart
+  /// final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  /// try {
+  ///   await for (final chunk in embedder.embedDirectory(
+  ///     'documents/',
+  ///     extensions: ['.pdf', '.txt'],
+  ///   )) {
+  ///     print('Processing ${chunk.filePath}: chunk ${chunk.chunkIndex}');
+  ///     // Process chunk immediately without storing all in memory
+  ///   }
+  /// } finally {
+  ///   embedder.dispose();
+  /// }
+  /// ```
+  Stream<ChunkEmbedding> embedDirectory(
+    String directoryPath, {
+    List<String>? extensions,
+    int chunkSize = 1000,
+    double overlapRatio = 0.0,
+    int batchSize = 32,
+  }) {
+    _checkDisposed();
+
+    late StreamController<ChunkEmbedding> controller;
+    NativeCallable<ffi.StreamCallbackType>? callback;
+    Pointer<CTextEmbedConfig>? config;
+    Pointer<Utf8>? directoryPathPtr;
+    Pointer<Pointer<Utf8>>? extensionsPtr;
+
+    controller = StreamController<ChunkEmbedding>(
+      onListen: () {
+        // Allocate config struct
+        config = allocateTextEmbedConfig(
+          chunkSize: chunkSize,
+          overlapRatio: overlapRatio,
+          batchSize: batchSize,
+          bufferSize: 100,
+        );
+
+        // Allocate extensions array if provided
+        if (extensions != null && extensions.isNotEmpty) {
+          extensionsPtr = allocateStringArray(extensions);
+        }
+
+        // Convert directory path to C string
+        directoryPathPtr = stringToCString(directoryPath);
+
+        // Create callback that adds chunks to stream
+        callback = NativeCallable<ffi.StreamCallbackType>.listener(
+          (Pointer<CEmbedDataBatch> batchPtr, Pointer<Void> context) {
+            try {
+              final batch = batchPtr.ref;
+
+              // Convert each CEmbedData to ChunkEmbedding and add to stream
+              for (int i = 0; i < batch.count; i++) {
+                final embedData = batch.items[i];
+                final chunk = _cEmbedDataToChunkEmbedding(embedData);
+                controller.add(chunk);
+              }
+            } catch (e, stackTrace) {
+              // Add error to stream instead of throwing
+              controller.addError(e, stackTrace);
+            }
+          },
+        );
+
+        // Call FFI function
+        final result = ffi.embedDirectoryStream(
+          _handle,
+          directoryPathPtr!,
+          extensionsPtr ?? nullptr,
+          extensions?.length ?? 0,
+          config!,
+          callback!.nativeFunction,
+          nullptr, // No context needed
+        );
+
+        // Check result and handle errors
+        if (result != 0) {
+          final errorMessage = getLastErrorMessage();
+          if (errorMessage != null) {
+            controller.addError(
+              _parseErrorForDirectory(errorMessage, directoryPath),
+            );
+          } else {
+            controller.addError(
+              Exception('Failed to embed directory: $directoryPath'),
+            );
+          }
+        }
+
+        // Close stream after processing completes
+        controller.close();
+      },
+      onCancel: () {
+        // Clean up resources when stream is cancelled
+        _cleanupDirectoryResources(
+          callback,
+          config,
+          directoryPathPtr,
+          extensionsPtr,
+          extensions?.length ?? 0,
+        );
+      },
+    );
+
+    return controller.stream;
+  }
+
+  /// Helper to parse error for directory operations
+  Exception _parseErrorForDirectory(String errorMessage, String directoryPath) {
+    // Use existing error parsing logic
+    try {
+      throwLastError('Directory embedding failed');
+    } catch (e) {
+      return e as Exception;
+    }
+  }
+
+  /// Helper to clean up directory streaming resources
+  void _cleanupDirectoryResources(
+    NativeCallable<ffi.StreamCallbackType>? callback,
+    Pointer<CTextEmbedConfig>? config,
+    Pointer<Utf8>? directoryPathPtr,
+    Pointer<Pointer<Utf8>>? extensionsPtr,
+    int extensionsCount,
+  ) {
+    callback?.close();
+    if (config != null && config != nullptr) {
+      calloc.free(config);
+    }
+    if (directoryPathPtr != null && directoryPathPtr != nullptr) {
+      freeCString(directoryPathPtr);
+    }
+    if (extensionsPtr != null && extensionsPtr != nullptr) {
+      freeStringArray(extensionsPtr, extensionsCount);
+    }
+  }
+
+  /// Convert CEmbedData to ChunkEmbedding
+  ChunkEmbedding _cEmbedDataToChunkEmbedding(CEmbedData embedData) {
+    // Copy embedding vector
+    final embeddingValues = _copyFloatArray(
+      embedData.embeddingValues,
+      embedData.embeddingLen,
+    );
+    final embedding = EmbeddingResult(embeddingValues);
+
+    // Convert text (may be NULL)
+    String? text;
+    if (embedData.text != nullptr) {
+      text = embedData.text.toDartString();
+    }
+
+    // Parse metadata JSON (may be NULL)
+    Map<String, String>? metadata;
+    if (embedData.metadataJson != nullptr) {
+      final jsonString = embedData.metadataJson.toDartString();
+      metadata = parseMetadataJson(jsonString);
+    }
+
+    return ChunkEmbedding(
+      embedding: embedding,
+      text: text,
+      metadata: metadata,
+    );
   }
 
   /// Manually dispose of the embedder

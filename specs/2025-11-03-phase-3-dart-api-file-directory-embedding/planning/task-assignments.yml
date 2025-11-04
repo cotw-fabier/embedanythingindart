@@ -1,0 +1,12 @@
+task_assignments:
+  - task_group: "Task Group 1: Rust FFI Types and Functions"
+    assigned_subagent: "database-engineer"
+
+  - task_group: "Task Group 2: Dart FFI Bindings and Native Types"
+    assigned_subagent: "api-engineer"
+
+  - task_group: "Task Group 3: Public Dart API Implementation"
+    assigned_subagent: "ui-designer"
+
+  - task_group: "Task Group 4: Comprehensive Test Coverage and Gap Analysis"
+    assigned_subagent: "testing-engineer"

@@ -1,0 +1,7 @@
+Transformers and Attention
+
+The Transformer architecture introduced the attention mechanism, allowing models to weigh the importance of different parts of the input when making predictions.
+
+Unlike recurrent networks, Transformers can process entire sequences in parallel, making them much faster to train. Self-attention enables the model to relate different positions in a sequence to compute representations.
+
+This architecture has become the foundation for state-of-the-art models in NLP, computer vision, and beyond.

@@ -1,0 +1,7 @@
+Introduction to Neural Networks
+
+Neural networks are computing systems inspired by biological neural networks in animal brains. They consist of layers of interconnected nodes (neurons) that process information.
+
+Each neuron receives inputs, applies a mathematical transformation, and produces an output. Through training, the network learns to adjust connection weights to minimize errors in its predictions.
+
+Deep neural networks with many layers have revolutionized fields like computer vision and natural language processing.

@@ -22,6 +22,12 @@
 ///       print('Multi-vector embeddings not supported');
 ///     case FFIError():
 ///       print('FFI error: ${e.operation}');
+///     case FileNotFoundError():
+///       print('File not found: ${e.path}');
+///     case UnsupportedFileFormatError():
+///       print('Unsupported format: ${e.extension}');
+///     case FileReadError():
+///       print('File read error: ${e.reason}');
 ///   }
 /// }
 /// ```
@@ -205,4 +211,102 @@ class FFIError extends EmbedAnythingError {
 
   @override
   String toString() => 'FFIError: $message';
+}
+
+/// Error thrown when a file or directory is not found (Phase 3)
+///
+/// This occurs when:
+/// - The specified file path does not exist
+/// - The specified directory path does not exist
+/// - Permission denied accessing the file or directory
+///
+/// Example:
+/// ```dart
+/// try {
+///   final chunks = await embedder.embedFile('/path/to/nonexistent.pdf');
+/// } on FileNotFoundError catch (e) {
+///   print('File not found: ${e.path}');
+///   // Check the path and try again
+/// }
+/// ```
+class FileNotFoundError extends EmbedAnythingError {
+  /// The path that was not found
+  final String path;
+
+  /// Creates a new FileNotFoundError
+  FileNotFoundError(this.path);
+
+  @override
+  String get message => 'File or directory not found: $path';
+
+  @override
+  String toString() => 'FileNotFoundError: $message';
+}
+
+/// Error thrown when a file format is not supported (Phase 3)
+///
+/// This occurs when:
+/// - The file extension is not in the supported list
+/// - The file format cannot be parsed by available parsers
+///
+/// Supported formats: PDF, TXT, MD, DOCX, HTML
+///
+/// Example:
+/// ```dart
+/// try {
+///   final chunks = await embedder.embedFile('/path/to/file.xyz');
+/// } on UnsupportedFileFormatError catch (e) {
+///   print('Unsupported format: ${e.extension} for ${e.path}');
+///   print('Supported formats: PDF, TXT, MD, DOCX, HTML');
+/// }
+/// ```
+class UnsupportedFileFormatError extends EmbedAnythingError {
+  /// The path to the file
+  final String path;
+
+  /// The file extension that is not supported
+  final String extension;
+
+  /// Creates a new UnsupportedFileFormatError
+  UnsupportedFileFormatError({required this.path, required this.extension});
+
+  @override
+  String get message => 'Unsupported file format: $extension (file: $path)';
+
+  @override
+  String toString() => 'UnsupportedFileFormatError: $message';
+}
+
+/// Error thrown when a file cannot be read (Phase 3)
+///
+/// This occurs when:
+/// - Permission denied reading the file
+/// - I/O error during file access
+/// - File is locked by another process
+/// - Disk read error
+///
+/// Example:
+/// ```dart
+/// try {
+///   final chunks = await embedder.embedFile('/protected/file.pdf');
+/// } on FileReadError catch (e) {
+///   print('Failed to read ${e.path}: ${e.reason}');
+///   // Check permissions or try again later
+/// }
+/// ```
+class FileReadError extends EmbedAnythingError {
+  /// The path to the file that could not be read
+  final String path;
+
+  /// The reason why the file could not be read
+  final String reason;
+
+  /// Creates a new FileReadError
+  FileReadError({required this.path, required this.reason});
+
+  @override
+  String get message => 'Failed to read file $path: $reason';
+
+  @override
+  String toString() => 'FileReadError: $message';
 }

@@ -403,7 +403,23 @@ dart test --enable-experiment=native-assets test/model_config_test.dart
 
 # Run with coverage
 dart test --enable-experiment=native-assets --coverage=coverage
+
+# Run Phase 3 file/directory embedding tests specifically
+dart test --enable-experiment=native-assets test/phase3_integration_test.dart
 ```
+
+**Phase 3 Test Requirements:**
+- Test fixtures are located in `test/fixtures/`
+- Integration tests require internet connection on first run to download BERT model (~90MB)
+- Subsequent runs use cached model from `~/.cache/huggingface/hub`
+- Tests verify:
+  - File embedding (.txt, .md files)
+  - Directory streaming with extension filtering
+  - Error handling (FileNotFoundError, UnsupportedFileFormatError)
+  - Metadata parsing and ChunkEmbedding utilities
+  - Memory management (no leaks)
+
+For detailed information about Phase 3 features, see test fixture documentation in `test/fixtures/README.md`.
 
 ### Code Standards
 

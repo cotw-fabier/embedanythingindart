@@ -78,6 +78,30 @@ void main() {
       expect(FFIError(operation: 'test'), isA<EmbedAnythingError>());
     });
 
+    test('Phase 3 errors implement Exception', () {
+      expect(FileNotFoundError('/test/path'), isA<Exception>());
+      expect(
+        UnsupportedFileFormatError(path: '/test/file.xyz', extension: '.xyz'),
+        isA<Exception>(),
+      );
+      expect(
+        FileReadError(path: '/test/file', reason: 'permission denied'),
+        isA<Exception>(),
+      );
+    });
+
+    test('Phase 3 errors extend EmbedAnythingError (sealed class)', () {
+      expect(FileNotFoundError('/test/path'), isA<EmbedAnythingError>());
+      expect(
+        UnsupportedFileFormatError(path: '/test/file.xyz', extension: '.xyz'),
+        isA<EmbedAnythingError>(),
+      );
+      expect(
+        FileReadError(path: '/test/file', reason: 'permission denied'),
+        isA<EmbedAnythingError>(),
+      );
+    });
+
     test('Error pattern matching works with sealed class', () {
       final error = ModelNotFoundError('test-model') as EmbedAnythingError;
 
@@ -87,6 +111,9 @@ void main() {
         EmbeddingFailedError() => 'Embedding failed error',
         MultiVectorNotSupportedError() => 'Multi-vector not supported error',
         FFIError() => 'FFI error',
+        FileNotFoundError() => 'File not found error',
+        UnsupportedFileFormatError() => 'Unsupported file format error',
+        FileReadError() => 'File read error',
       };
 
       expect(message, equals('Model not found error'));
