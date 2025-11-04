@@ -52,8 +52,9 @@ final class CTextEmbedConfig extends Struct {
 
 /// C representation of embedded chunk data
 ///
-/// Contains the embedding vector, text content, and JSON metadata.
+/// Contains the embedding vector and combined text+metadata JSON.
 /// Memory layout must match Rust CEmbedData struct.
+/// Uses single JSON field to avoid FFI alignment issues (SurrealDB pattern).
 final class CEmbedData extends Struct {
   /// Pointer to the embedding values array (f32)
   external Pointer<Float> embeddingValues;
@@ -62,11 +63,8 @@ final class CEmbedData extends Struct {
   @Size()
   external int embeddingLen;
 
-  /// Text content of this chunk (NULL if none)
-  external Pointer<Utf8> text;
-
-  /// Metadata as JSON string (NULL if none)
-  external Pointer<Utf8> metadataJson;
+  /// Combined text and metadata as JSON: {"text": "...", "metadata": {...}}
+  external Pointer<Utf8> textAndMetadataJson;
 }
 
 /// C representation of a batch of embedded data

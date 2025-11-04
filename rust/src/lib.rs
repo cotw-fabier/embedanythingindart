@@ -112,12 +112,14 @@ pub struct CTextEmbedConfig {
 }
 
 /// C-compatible representation of EmbedData
+///
+/// Combines text and metadata into single JSON field to avoid FFI alignment issues
+/// with multiple pointer fields (following SurrealDB pattern)
 #[repr(C)]
 pub struct CEmbedData {
     pub embedding_values: *mut f32,
     pub embedding_len: usize,
-    pub text: *mut c_char,           // NULL if no text
-    pub metadata_json: *mut c_char,  // JSON string or NULL
+    pub text_and_metadata_json: *mut c_char,  // Combined JSON: {"text": "...", "metadata": {...}}
 }
 
 /// Batch of CEmbedData
@@ -155,34 +157,44 @@ fn embed_data_to_c(data: EmbedData) -> Result<CEmbedData, String> {
     let embedding_values = boxed_embedding.as_mut_ptr();
     std::mem::forget(boxed_embedding); // Transfer ownership to Dart
 
-    // Convert Option<String> text to *mut c_char (NULL if None)
-    let text = match data.text {
-        Some(text_str) => match CString::new(text_str) {
-            Ok(cstring) => cstring.into_raw(),
-            Err(_) => std::ptr::null_mut(),
-        },
-        None => std::ptr::null_mut(),
-    };
+    // Combine text and metadata into single JSON object (SurrealDB pattern)
+    // This avoids FFI alignment issues with multiple pointer fields
+    let text_and_metadata_json = {
+        use serde_json::json;
 
-    // Serialize HashMap<String, String> metadata to JSON string
-    let metadata_json = match data.metadata {
-        Some(metadata_map) => {
-            match serde_json::to_string(&metadata_map) {
-                Ok(json_str) => match CString::new(json_str) {
-                    Ok(cstring) => cstring.into_raw(),
-                    Err(_) => std::ptr::null_mut(),
-                },
-                Err(_) => std::ptr::null_mut(),
-            }
+        // Create combined JSON object
+        let combined = json!({
+            "text": data.text,
+            "metadata": data.metadata
+        });
+
+        eprintln!("DEBUG: embed_data_to_c: Creating combined JSON");
+        match serde_json::to_string(&combined) {
+            Ok(json_str) => {
+                eprintln!("DEBUG: embed_data_to_c: Combined JSON: {}", json_str);
+                match CString::new(json_str) {
+                    Ok(cstring) => {
+                        let ptr = cstring.into_raw();
+                        eprintln!("DEBUG: embed_data_to_c: Converted to C string successfully");
+                        ptr
+                    },
+                    Err(e) => {
+                        eprintln!("DEBUG: embed_data_to_c: CString::new failed: {}", e);
+                        std::ptr::null_mut()
+                    },
+                }
+            },
+            Err(e) => {
+                eprintln!("DEBUG: embed_data_to_c: JSON serialization failed: {}", e);
+                std::ptr::null_mut()
+            },
         }
-        None => std::ptr::null_mut(),
     };
 
     Ok(CEmbedData {
         embedding_values,
         embedding_len,
-        text,
-        metadata_json,
+        text_and_metadata_json,
     })
 }
 
@@ -227,11 +239,8 @@ unsafe fn free_embed_data_single(data: CEmbedData) {
             data.embedding_len,
         ));
     }
-    if !data.text.is_null() {
-        drop(CString::from_raw(data.text));
-    }
-    if !data.metadata_json.is_null() {
-        drop(CString::from_raw(data.metadata_json));
+    if !data.text_and_metadata_json.is_null() {
+        drop(CString::from_raw(data.text_and_metadata_json));
     }
 }
 
@@ -619,11 +628,18 @@ pub extern "C" fn embed_file(
         // This ensures we have metadata even if upstream function fails to extract it
         eprintln!("DEBUG: Attempting to embed file: {:?}", path);
         let extracted_metadata = match TextLoader::get_metadata(&path) {
-            Ok(metadata) => {
+            Ok(mut metadata) => {
                 eprintln!("DEBUG: Metadata extracted successfully");
                 eprintln!("  file_name: {:?}", metadata.get("file_name"));
                 eprintln!("  created: {:?}", metadata.get("created"));
                 eprintln!("  modified: {:?}", metadata.get("modified"));
+
+                // Transform metadata: rename "file_name" to "file_path" for Dart API compatibility
+                if let Some(file_name) = metadata.remove("file_name") {
+                    metadata.insert("file_path".to_string(), file_name);
+                    eprintln!("DEBUG: Transformed file_name -> file_path");
+                }
+
                 Some(metadata)
             }
             Err(e) => {
@@ -639,14 +655,33 @@ pub extern "C" fn embed_file(
 
         match embed_result {
             Ok(Some(mut embed_data_vec)) => {
+                eprintln!("DEBUG: Got {} EmbedData items from upstream", embed_data_vec.len());
+
                 // Inject metadata into any EmbedData items that have None metadata
+                // Also add chunk_index and transform file_name to file_path for all items
                 if let Some(ref metadata) = extracted_metadata {
-                    for embed_data in embed_data_vec.iter_mut() {
+                    eprintln!("DEBUG: extracted_metadata is Some, checking {} items", embed_data_vec.len());
+                    for (i, embed_data) in embed_data_vec.iter_mut().enumerate() {
                         if embed_data.metadata.is_none() {
-                            eprintln!("DEBUG: Injecting extracted metadata into EmbedData");
-                            embed_data.metadata = Some(metadata.clone());
+                            eprintln!("DEBUG: Item {}: metadata is None, injecting", i);
+                            let mut chunk_metadata = metadata.clone();
+                            chunk_metadata.insert("chunk_index".to_string(), i.to_string());
+                            embed_data.metadata = Some(chunk_metadata);
+                        } else {
+                            eprintln!("DEBUG: Item {}: metadata already present", i);
+                            // Add chunk_index and transform file_name->file_path in existing metadata
+                            if let Some(ref mut existing_metadata) = embed_data.metadata {
+                                existing_metadata.insert("chunk_index".to_string(), i.to_string());
+                                // Transform file_name to file_path if present
+                                if let Some(file_name) = existing_metadata.remove("file_name") {
+                                    existing_metadata.insert("file_path".to_string(), file_name);
+                                    eprintln!("DEBUG: Item {}: Transformed file_name -> file_path", i);
+                                }
+                            }
                         }
                     }
+                } else {
+                    eprintln!("DEBUG: extracted_metadata is None, no injection possible");
                 }
 
                 // Convert Vec<EmbedData> to CEmbedDataBatch
@@ -804,7 +839,7 @@ pub extern "C" fn embed_directory_stream(
         eprintln!("DEBUG: embed_directory_stream completed");
 
         match embed_result {
-            Ok(Some(embed_data_vec)) => {
+            Ok(Some(mut embed_data_vec)) => {
                 eprintln!("DEBUG: Got {} embeddings from directory", embed_data_vec.len());
 
                 // Log first few results if available
@@ -817,15 +852,31 @@ pub extern "C" fn embed_directory_stream(
                     }
                 }
 
+                // Transform file_name to file_path in all metadata
+                for embed_data in embed_data_vec.iter_mut() {
+                    if let Some(ref mut metadata) = embed_data.metadata {
+                        if let Some(file_name) = metadata.remove("file_name") {
+                            metadata.insert("file_path".to_string(), file_name);
+                        }
+                    }
+                }
+
                 // Convert Vec<EmbedData> to CEmbedDataBatch
                 match embed_data_vec_to_batch(embed_data_vec) {
                     Ok(batch_ptr) => {
+                        eprintln!("DEBUG: Converted to CEmbedDataBatch successfully");
+                        eprintln!("DEBUG: batch.count = {}", unsafe { (*batch_ptr).count });
+                        eprintln!("DEBUG: Calling Dart callback...");
+
                         // Call the callback once with all results
                         (callback)(batch_ptr, callback_context);
+
+                        eprintln!("DEBUG: Dart callback returned");
                         // Note: Dart side is responsible for freeing the batch
                         0  // Success
                     }
                     Err(e) => {
+                        eprintln!("DEBUG: Failed to convert to CEmbedDataBatch: {}", e);
                         set_last_error(&e);
                         -1
                     }

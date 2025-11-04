@@ -1,6 +1,8 @@
+import 'dart:io';
+
 import 'package:embedanythingindart/embedanythingindart.dart';
 
-void main() {
+void main() async {
   print('=== EmbedAnything Dart Example ===\n');
 
   // ============================================================================
@@ -51,7 +53,9 @@ void main() {
     'Vector embeddings capture semantic meaning',
   ];
 
-  print('Generating embeddings for ${texts.length} texts using batch processing...');
+  print(
+    'Generating embeddings for ${texts.length} texts using batch processing...',
+  );
   final batchResults = embedder.embedTextsBatch(texts);
 
   print('Generated ${batchResults.length} embeddings:');
@@ -115,12 +119,13 @@ void main() {
   final candidateEmbs = embedder.embedTextsBatch(candidates);
 
   // Compute similarities
-  final similarities = candidateEmbs
-      .asMap()
-      .entries
-      .map((e) => MapEntry(e.key, queryEmb.cosineSimilarity(e.value)))
-      .toList()
-    ..sort((a, b) => b.value.compareTo(a.value)); // Sort by similarity desc
+  final similarities =
+      candidateEmbs
+          .asMap()
+          .entries
+          .map((e) => MapEntry(e.key, queryEmb.cosineSimilarity(e.value)))
+          .toList()
+        ..sort((a, b) => b.value.compareTo(a.value)); // Sort by similarity desc
 
   print('Top 3 most similar:');
   for (int i = 0; i < 3; i++) {
@@ -159,6 +164,12 @@ void main() {
         print('Action: Use a dense single-vector model');
       case FFIError():
         print('Action: Check native library installation');
+      case FileNotFoundError():
+        print('Action: Verify file/directory path exists');
+      case UnsupportedFileFormatError():
+        print('Action: Use supported formats (.txt, .md, .pdf, etc.)');
+      case FileReadError():
+        print('Action: Check file permissions and accessibility');
     }
     print('');
   }
@@ -217,7 +228,238 @@ void main() {
 
   processWithAutoCleanup();
   print('Processed text with automatic cleanup (finalizer)');
-  print('Note: Manual dispose() is still recommended for deterministic cleanup\n');
+  print(
+    'Note: Manual dispose() is still recommended for deterministic cleanup\n',
+  );
+
+  // ============================================================================
+  // Example 9: File Embedding with Metadata
+  // ============================================================================
+  print('--- Example 9: File Embedding ---');
+
+  // Create a temporary example file
+  final exampleFile = 'example_document.txt';
+  final exampleContent = '''
+Machine Learning Fundamentals
+
+Machine learning enables computers to learn from data without explicit programming.
+It uses algorithms to identify patterns and make predictions.
+
+Key concepts include:
+- Supervised learning: Learning from labeled data
+- Unsupervised learning: Finding patterns in unlabeled data
+- Reinforcement learning: Learning through trial and error
+
+Applications span from recommendation systems to autonomous vehicles.
+''';
+
+  try {
+    // Write example file
+    final file = File(exampleFile);
+    file.writeAsStringSync(exampleContent);
+
+    print('Embedding file: $exampleFile');
+
+    // Embed file with automatic chunking
+    final fileChunks = await embedder.embedFile(
+      exampleFile,
+      chunkSize: 200,      // Split into ~200 character chunks
+      overlapRatio: 0.1,   // 10% overlap between chunks
+      batchSize: 32,
+    );
+
+    print('Generated ${fileChunks.length} chunks with metadata:\n');
+
+    for (var i = 0; i < fileChunks.length; i++) {
+      final chunk = fileChunks[i];
+      print('Chunk $i:');
+      print('  File: ${chunk.filePath ?? "N/A"}');
+      print('  Index: ${chunk.chunkIndex ?? "N/A"}');
+      print('  Text length: ${chunk.text?.length ?? 0} chars');
+      print('  Embedding dimension: ${chunk.embedding.dimension}');
+      print('  Preview: ${chunk.text?.substring(0, 50).replaceAll('\n', ' ')}...');
+      print('');
+    }
+
+    // Demonstrate semantic search across chunks
+    print('Searching for "supervised learning" across chunks...');
+    final queryEmb = embedder.embedText('supervised learning');
+
+    final rankedChunks = fileChunks
+        .asMap()
+        .entries
+        .map((e) => MapEntry(
+              e.key,
+              queryEmb.cosineSimilarity(e.value.embedding),
+            ))
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    print('Most relevant chunk: #${rankedChunks[0].key}');
+    print(
+      'Similarity: ${rankedChunks[0].value.toStringAsFixed(4)}\n',
+    );
+
+  } catch (e) {
+    print('Error: $e\n');
+  } finally {
+    // Clean up example file
+    try {
+      final file = File(exampleFile);
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    } catch (_) {}
+  }
+
+  // ============================================================================
+  // Example 10: Directory Embedding with Filtering
+  // ============================================================================
+  print('--- Example 10: Directory Embedding ---');
+
+  // Create temporary directory with example files
+  final exampleDir = 'example_docs';
+
+  try {
+    // Create directory structure
+    final dir = Directory(exampleDir);
+    if (!dir.existsSync()) {
+      dir.createSync();
+    }
+
+    // Create different file types
+    File('$exampleDir/doc1.txt').writeAsStringSync(
+      'Introduction to Neural Networks\n\nNeural networks are computing systems inspired by biological brains.',
+    );
+
+    File('$exampleDir/doc2.md').writeAsStringSync(
+      '# Deep Learning\n\nDeep learning uses multi-layer neural networks for complex pattern recognition.',
+    );
+
+    File('$exampleDir/doc3.txt').writeAsStringSync(
+      'Transformers Architecture\n\nThe transformer model revolutionized NLP with attention mechanisms.',
+    );
+
+    File('$exampleDir/readme.md').writeAsStringSync(
+      '# Project Documentation\n\nThis directory contains ML documentation.',
+    );
+
+    print('Embedding all files in directory: $exampleDir');
+
+    // Option 1: Embed all supported files
+    final allChunks = <ChunkEmbedding>[];
+    await for (final chunk in embedder.embedDirectory(
+      exampleDir,
+      chunkSize: 300,
+      batchSize: 32,
+    )) {
+      allChunks.add(chunk);
+    }
+
+    print('Embedded ${allChunks.length} chunks from all files\n');
+
+    // Option 2: Filter by extension (.txt files only)
+    print('Embedding only .txt files...');
+    final txtChunks = <ChunkEmbedding>[];
+    await for (final chunk in embedder.embedDirectory(
+      exampleDir,
+      extensions: ['.txt'],
+      chunkSize: 300,
+    )) {
+      txtChunks.add(chunk);
+    }
+
+    print('Embedded ${txtChunks.length} chunks from .txt files');
+
+    // Show file distribution
+    final fileGroups = <String, int>{};
+    for (var chunk in txtChunks) {
+      final fileName = chunk.filePath?.split('/').last ?? 'unknown';
+      fileGroups[fileName] = (fileGroups[fileName] ?? 0) + 1;
+    }
+
+    print('Distribution:');
+    fileGroups.forEach((file, count) {
+      print('  $file: $count chunks');
+    });
+    print('');
+
+    // Demonstrate cross-file semantic search
+    print('Searching for "attention mechanism" across all files...');
+    final searchQuery = embedder.embedText('attention mechanism');
+
+    final results = allChunks
+        .asMap()
+        .entries
+        .map((e) => (
+              chunk: e.value,
+              similarity: searchQuery.cosineSimilarity(e.value.embedding),
+            ))
+        .toList()
+      ..sort((a, b) => b.similarity.compareTo(a.similarity));
+
+    print('Top 3 results:');
+    for (var i = 0; i < 3 && i < results.length; i++) {
+      final result = results[i];
+      final fileName = result.chunk.filePath?.split('/').last ?? 'unknown';
+      print(
+        '  ${i + 1}. $fileName (similarity: ${result.similarity.toStringAsFixed(4)})',
+      );
+      print('     "${result.chunk.text?.substring(0, 60).replaceAll('\n', ' ')}..."');
+    }
+    print('');
+
+  } catch (e) {
+    print('Error: $e\n');
+  } finally {
+    // Clean up example directory
+    try {
+      final dir = Directory(exampleDir);
+      if (dir.existsSync()) {
+        dir.deleteSync(recursive: true);
+      }
+    } catch (_) {}
+  }
+
+  // ============================================================================
+  // Example 11: File Error Handling
+  // ============================================================================
+  print('--- Example 11: File-Specific Error Handling ---');
+
+  // File not found
+  try {
+    print('Attempting to embed non-existent file...');
+    await embedder.embedFile('non_existent_file.txt');
+  } on FileNotFoundError catch (e) {
+    print('Caught FileNotFoundError: ${e.message}');
+    print('Path: ${e.path}\n');
+  }
+
+  // Unsupported format
+  try {
+    print('Attempting to embed unsupported file format...');
+    final tempFile = File('test.xyz')
+      ..writeAsStringSync('test content');
+
+    try {
+      await embedder.embedFile('test.xyz');
+    } finally {
+      if (tempFile.existsSync()) {
+        tempFile.deleteSync();
+      }
+    }
+  } on UnsupportedFileFormatError catch (e) {
+    print('Caught UnsupportedFileFormatError: ${e.message}');
+    print('Extension: ${e.extension}\n');
+  }
+
+  // Directory not found
+  try {
+    print('Attempting to embed non-existent directory...');
+    await embedder.embedDirectory('non_existent_dir').first;
+  } on FileNotFoundError catch (e) {
+    print('Caught FileNotFoundError for directory: ${e.message}\n');
+  }
 
   // ============================================================================
   // Cleanup
@@ -234,6 +476,10 @@ void main() {
   print('  - Batch processing is 5-10x faster for multiple texts');
   print('  - Cosine similarity measures semantic similarity (0-1 range)');
   print('  - Use try-catch with EmbedAnythingError for robust error handling');
+  print('  - File/directory embedding supports automatic chunking and metadata');
+  print('  - Stream-based directory embedding for memory-efficient processing');
+  print('  - Filter files by extension when embedding directories');
+  print('  - ChunkEmbedding provides filePath, chunkIndex, and other metadata');
   print('  - Dispose embedders manually for predictable resource management');
   print('  - Reuse embedders instead of creating many instances');
 }

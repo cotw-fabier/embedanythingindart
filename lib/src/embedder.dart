@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 
 import 'chunk_embedding.dart';
 import 'embedding_result.dart';
+import 'errors.dart';
 import 'ffi/bindings.dart' as ffi;
 import 'ffi/ffi_utils.dart';
 import 'ffi/native_types.dart';
@@ -431,21 +433,37 @@ class EmbedAnything {
         // Convert directory path to C string
         directoryPathPtr = stringToCString(directoryPath);
 
+        // Use Completer to wait for callback before closing stream
+        final callbackCompleter = Completer<void>();
+
         // Create callback that adds chunks to stream
         callback = NativeCallable<ffi.StreamCallbackType>.listener(
           (Pointer<CEmbedDataBatch> batchPtr, Pointer<Void> context) {
             try {
+              print('DEBUG DART: Directory callback fired');
               final batch = batchPtr.ref;
+              print('DEBUG DART: Batch count: ${batch.count}');
 
               // Convert each CEmbedData to ChunkEmbedding and add to stream
               for (int i = 0; i < batch.count; i++) {
                 final embedData = batch.items[i];
                 final chunk = _cEmbedDataToChunkEmbedding(embedData);
                 controller.add(chunk);
+                print('DEBUG DART: Added chunk $i to stream');
               }
+
+              // Free the batch memory (CRITICAL for preventing memory leaks)
+              ffi.freeEmbedDataBatch(batchPtr);
+              print('DEBUG DART: Freed batch memory');
             } catch (e, stackTrace) {
+              print('DEBUG DART: Callback error: $e');
               // Add error to stream instead of throwing
               controller.addError(e, stackTrace);
+            } finally {
+              // Signal that callback has completed
+              if (!callbackCompleter.isCompleted) {
+                callbackCompleter.complete();
+              }
             }
           },
         );
@@ -473,10 +491,17 @@ class EmbedAnything {
               Exception('Failed to embed directory: $directoryPath'),
             );
           }
+          // Complete the completer since callback won't be called on error
+          if (!callbackCompleter.isCompleted) {
+            callbackCompleter.complete();
+          }
         }
 
-        // Close stream after processing completes
-        controller.close();
+        // Wait for callback to complete before closing stream
+        callbackCompleter.future.then((_) {
+          print('DEBUG DART: Callback completed, closing stream');
+          controller.close();
+        });
       },
       onCancel: () {
         // Clean up resources when stream is cancelled
@@ -495,11 +520,33 @@ class EmbedAnything {
 
   /// Helper to parse error for directory operations
   Exception _parseErrorForDirectory(String errorMessage, String directoryPath) {
-    // Use existing error parsing logic
-    try {
-      throwLastError('Directory embedding failed');
-    } catch (e) {
-      return e as Exception;
+    // Parse error message using same logic as ffi_utils.dart
+    if (errorMessage.startsWith('FILE_NOT_FOUND:')) {
+      final path = errorMessage.substring('FILE_NOT_FOUND:'.length).trim();
+      return FileNotFoundError(path);
+    } else if (errorMessage.startsWith('FILE_READ_ERROR:')) {
+      final parts = errorMessage.substring('FILE_READ_ERROR:'.length).trim();
+      final colonIndex = parts.indexOf(':', 1);
+      if (colonIndex != -1) {
+        final path = parts.substring(0, colonIndex).trim();
+        final reason = parts.substring(colonIndex + 1).trim();
+        return FileReadError(path: path, reason: reason);
+      } else {
+        return FileReadError(path: parts, reason: 'Unknown error');
+      }
+    } else if (errorMessage.startsWith('UNSUPPORTED_FORMAT:')) {
+      final parts = errorMessage.substring('UNSUPPORTED_FORMAT:'.length).trim();
+      final forIndex = parts.indexOf(' for ');
+      if (forIndex != -1) {
+        final extension = parts.substring(0, forIndex).trim();
+        final path = parts.substring(forIndex + 5).trim();
+        return UnsupportedFileFormatError(path: path, extension: extension);
+      } else {
+        return UnsupportedFileFormatError(path: parts, extension: 'unknown');
+      }
+    } else {
+      // Fallback: treat as FFI error
+      return FFIError(operation: 'Directory embedding', nativeError: errorMessage);
     }
   }
 
@@ -532,17 +579,42 @@ class EmbedAnything {
     );
     final embedding = EmbeddingResult(embeddingValues);
 
-    // Convert text (may be NULL)
+    // Parse combined text and metadata JSON (SurrealDB pattern)
     String? text;
-    if (embedData.text != nullptr) {
-      text = embedData.text.toDartString();
-    }
-
-    // Parse metadata JSON (may be NULL)
     Map<String, String>? metadata;
-    if (embedData.metadataJson != nullptr) {
-      final jsonString = embedData.metadataJson.toDartString();
-      metadata = parseMetadataJson(jsonString);
+
+    print('DEBUG DART: textAndMetadataJson pointer: ${embedData.textAndMetadataJson}');
+    if (embedData.textAndMetadataJson != nullptr) {
+      print('DEBUG DART: Pointer is NOT null, converting to string...');
+      final jsonString = embedData.textAndMetadataJson.toDartString();
+      print('DEBUG DART: JSON string received: $jsonString');
+      try {
+        final combined = jsonDecode(jsonString);
+        print('DEBUG DART: Decoded JSON: $combined');
+        if (combined is Map) {
+          // Extract text field (may be null in JSON)
+          final textValue = combined['text'];
+          if (textValue != null && textValue is String) {
+            text = textValue;
+            print('DEBUG DART: Extracted text (${text!.length} chars)');
+          }
+
+          // Extract metadata field (may be null in JSON)
+          final metadataValue = combined['metadata'];
+          if (metadataValue != null && metadataValue is Map) {
+            // Convert all values to strings
+            metadata = metadataValue.map(
+              (key, value) => MapEntry(key.toString(), value.toString()),
+            );
+            print('DEBUG DART: Extracted metadata with ${metadata!.length} keys');
+          }
+        }
+      } catch (e) {
+        print('DEBUG DART: JSON parsing failed: $e');
+        // Invalid JSON, leave text and metadata as null
+      }
+    } else {
+      print('DEBUG DART: Pointer IS null!');
     }
 
     return ChunkEmbedding(
