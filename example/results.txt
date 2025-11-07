@@ -1,0 +1,218 @@
+Running build hooks...Running build hooks...=== EmbedAnything Dart Example ===
+
+--- Example 1: Loading Models ---
+Loading BERT model using predefined config...
+Model loaded successfully!
+
+Loading Jina model with custom configuration...
+Custom Jina model loaded successfully!
+Config: ModelConfig(modelId: jinaai/jina-embeddings-v2-small-en, modelType: EmbeddingModel.jina, revision: main, dtype: ModelDtype.f16, normalize: true, defaultBatchSize: 64)
+
+--- Example 2: Single Text Embedding ---
+Embedding text: "EmbedAnything is a fast embedding library written in Rust"
+Embedding dimension: 384
+First 10 values: [-0.07594095915555954, -0.027444254606962204, -0.017262052744627, 0.02657400257885456, 0.07054940611124039, 0.025733552873134613, 0.0006084392662160099, 0.031363748013973236, -0.032194413244724274, -0.09312622249126434]
+Vector preview: EmbeddingResult(dimension: 384, preview: [-0.07594095915555954, -0.027444254606962204, -0.017262052744627, 0.02657400257885456, 0.07054940611124039...])
+
+--- Example 3: Batch Embedding ---
+Generating embeddings for 5 texts using batch processing...
+Generated 5 embeddings:
+  [0] Dimension: 384
+  [1] Dimension: 384
+  [2] Dimension: 384
+  [3] Dimension: 384
+  [4] Dimension: 384
+
+--- Example 4: Semantic Similarity ---
+Embedding texts for similarity comparison...
+
+Text 1: "I love programming in Rust"
+Text 2: "Rust is my favorite programming language"
+Similarity 1-2: 0.9099 (highly related)
+
+Text 1: "I love programming in Rust"
+Text 3: "Writing code in Rust is enjoyable"
+Similarity 1-3: 0.8374 (related)
+
+Text 1: "I love programming in Rust"
+Text 4: "I enjoy cooking delicious meals"
+Similarity 1-4: 0.2178 (unrelated)
+
+--- Example 5: Finding Most Similar Text ---
+Query: "Programming languages"
+Finding most similar from 5 candidates...
+
+Top 3 most similar:
+  1. [0.6685] "Rust is a systems programming language"
+  2. [0.6394] "Python is a popular programming language"
+  3. [0.1879] "JavaScript runs in web browsers"
+
+--- Example 6: Error Handling ---
+Attempting to load invalid model...
+Caught expected error: ModelNotFoundError
+Message: Model not found: invalid/model/that/does/not/exist
+Action: Check model ID on HuggingFace Hub
+
+--- Example 7: Comparing Different Models ---
+BERT all-MiniLM-L6-v2:
+  Dimension: 384
+  First 5: [0.013454800471663475, 0.00022577392519451678, 0.0389014407992363, -0.033500730991363525, 0.017558498308062553]
+
+Jina v2-small-en (F16):
+  Dimension: 512
+  First 5: [-0.06880252808332443, -0.060051579028367996, 0.00820714607834816, 0.06673482805490494, 0.018805116415023804]
+
+--- Example 8: Memory Management ---
+Demonstrating manual cleanup (recommended for long-running apps)...
+Processed 5 texts with single embedder instance
+Embedder disposed manually
+
+Processed text with automatic cleanup (finalizer)
+Note: Manual dispose() is still recommended for deterministic cleanup
+
+--- Example 9: File Embedding ---
+Embedding file: example_document.txt
+DEBUG DART: textAndMetadataJson pointer: Pointer: address=0x127e0a060
+DEBUG DART: Pointer is NOT null, converting to string...
+DEBUG DART: JSON string received: {"metadata":{"chunk_index":"0","created":"2025-11-03 23:27:03.397729166 -05:00","file_path":"/Users/fabier/Documents/code/embedanythingindart/example/example_document.txt","modified":"2025-11-03 23:27:03.398415970 -05:00"},"text":"Machine Learning Fundamentals\n\nMachine learning enables computers to learn from data without explicit programming.\nIt uses algorithms to identify patterns and make predictions.\n\nKey concepts include:"}
+DEBUG DART: Decoded JSON: {metadata: {chunk_index: 0, created: 2025-11-03 23:27:03.397729166 -05:00, file_path: /Users/fabier/Documents/code/embedanythingindart/example/example_document.txt, modified: 2025-11-03 23:27:03.398415970 -05:00}, text: Machine Learning Fundamentals
+
+Machine learning enables computers to learn from data without explicit programming.
+It uses algorithms to identify patterns and make predictions.
+
+Key concepts include:}
+DEBUG DART: Extracted text (199 chars)
+DEBUG DART: Extracted metadata with 4 keys
+DEBUG DART: textAndMetadataJson pointer: Pointer: address=0x127e0a260
+DEBUG DART: Pointer is NOT null, converting to string...
+DEBUG DART: JSON string received: {"metadata":{"chunk_index":"1","created":"2025-11-03 23:27:03.397729166 -05:00","file_path":"/Users/fabier/Documents/code/embedanythingindart/example/example_document.txt","modified":"2025-11-03 23:27:03.398415970 -05:00"},"text":"- Supervised learning: Learning from labeled data\n- Unsupervised learning: Finding patterns in unlabeled data\n- Reinforcement learning: Learning through trial and error"}
+DEBUG DART: Decoded JSON: {metadata: {chunk_index: 1, created: 2025-11-03 23:27:03.397729166 -05:00, file_path: /Users/fabier/Documents/code/embedanythingindart/example/example_document.txt, modified: 2025-11-03 23:27:03.398415970 -05:00}, text: - Supervised learning: Learning from labeled data
+- Unsupervised learning: Finding patterns in unlabeled data
+- Reinforcement learning: Learning through trial and error}
+DEBUG DART: Extracted text (168 chars)
+DEBUG DART: Extracted metadata with 4 keys
+DEBUG DART: textAndMetadataJson pointer: Pointer: address=0x127e08a80
+DEBUG DART: Pointer is NOT null, converting to string...
+DEBUG DART: JSON string received: {"metadata":{"chunk_index":"2","created":"2025-11-03 23:27:03.397729166 -05:00","file_path":"/Users/fabier/Documents/code/embedanythingindart/example/example_document.txt","modified":"2025-11-03 23:27:03.398415970 -05:00"},"text":"Applications span from recommendation systems to autonomous vehicles."}
+DEBUG DART: Decoded JSON: {metadata: {chunk_index: 2, created: 2025-11-03 23:27:03.397729166 -05:00, file_path: /Users/fabier/Documents/code/embedanythingindart/example/example_document.txt, modified: 2025-11-03 23:27:03.398415970 -05:00}, text: Applications span from recommendation systems to autonomous vehicles.}
+DEBUG DART: Extracted text (69 chars)
+DEBUG DART: Extracted metadata with 4 keys
+Generated 3 chunks with metadata:
+
+Chunk 0:
+  File: /Users/fabier/Documents/code/embedanythingindart/example/example_document.txt
+  Index: 0
+  Text length: 199 chars
+  Embedding dimension: 384
+  Preview: Machine Learning Fundamentals  Machine learning en...
+
+Chunk 1:
+  File: /Users/fabier/Documents/code/embedanythingindart/example/example_document.txt
+  Index: 1
+  Text length: 168 chars
+  Embedding dimension: 384
+  Preview: - Supervised learning: Learning from labeled data ...
+
+Chunk 2:
+  File: /Users/fabier/Documents/code/embedanythingindart/example/example_document.txt
+  Index: 2
+  Text length: 69 chars
+  Embedding dimension: 384
+  Preview: Applications span from recommendation systems to a...
+
+Searching for "supervised learning" across chunks...
+Most relevant chunk: #1
+Similarity: 0.5783
+
+--- Example 10: Directory Embedding ---
+Embedding all files in directory: example_docs
+Embedding directory: "example_docs"
+DEBUG DART: Directory callback fired
+DEBUG DART: Batch count: 4
+DEBUG DART: textAndMetadataJson pointer: Pointer: address=0x127e08a80
+DEBUG DART: Pointer is NOT null, converting to string...
+DEBUG DART: JSON string received: {"metadata":{"created":"2025-11-03 23:27:03.437123201 -05:00","file_path":"/Users/fabier/Documents/code/embedanythingindart/example/example_docs/readme.md","modified":"2025-11-03 23:27:03.437158368 -05:00"},"text":"# Project Documentation\n\nThis directory contains ML documentation."}
+DEBUG DART: Decoded JSON: {metadata: {created: 2025-11-03 23:27:03.437123201 -05:00, file_path: /Users/fabier/Documents/code/embedanythingindart/example/example_docs/readme.md, modified: 2025-11-03 23:27:03.437158368 -05:00}, text: # Project Documentation
+
+This directory contains ML documentation.}
+DEBUG DART: Extracted text (66 chars)
+DEBUG DART: Extracted metadata with 3 keys
+DEBUG DART: Added chunk 0 to stream
+DEBUG DART: textAndMetadataJson pointer: Pointer: address=0x127e0a2e0
+DEBUG DART: Pointer is NOT null, converting to string...
+DEBUG DART: JSON string received: {"metadata":{"created":"2025-11-03 23:27:03.437001823 -05:00","file_path":"/Users/fabier/Documents/code/embedanythingindart/example/example_docs/doc2.md","modified":"2025-11-03 23:27:03.437030532 -05:00"},"text":"# Deep Learning\n\nDeep learning uses multi-layer neural networks for complex pattern recognition."}
+DEBUG DART: Decoded JSON: {metadata: {created: 2025-11-03 23:27:03.437001823 -05:00, file_path: /Users/fabier/Documents/code/embedanythingindart/example/example_docs/doc2.md, modified: 2025-11-03 23:27:03.437030532 -05:00}, text: # Deep Learning
+
+Deep learning uses multi-layer neural networks for complex pattern recognition.}
+DEBUG DART: Extracted text (96 chars)
+DEBUG DART: Extracted metadata with 3 keys
+DEBUG DART: Added chunk 1 to stream
+DEBUG DART: textAndMetadataJson pointer: Pointer: address=0x127e0a4e0
+DEBUG DART: Pointer is NOT null, converting to string...
+DEBUG DART: JSON string received: {"metadata":{"created":"2025-11-03 23:27:03.436881655 -05:00","file_path":"/Users/fabier/Documents/code/embedanythingindart/example/example_docs/doc1.txt","modified":"2025-11-03 23:27:03.436935072 -05:00"},"text":"Introduction to Neural Networks\n\nNeural networks are computing systems inspired by biological brains."}
+DEBUG DART: Decoded JSON: {metadata: {created: 2025-11-03 23:27:03.436881655 -05:00, file_path: /Users/fabier/Documents/code/embedanythingindart/example/example_docs/doc1.txt, modified: 2025-11-03 23:27:03.436935072 -05:00}, text: Introduction to Neural Networks
+
+Neural networks are computing systems inspired by biological brains.}
+DEBUG DART: Extracted text (101 chars)
+DEBUG DART: Extracted metadata with 3 keys
+DEBUG DART: Added chunk 2 to stream
+DEBUG DART: textAndMetadataJson pointer: Pointer: address=0x127e07d60
+DEBUG DART: Pointer is NOT null, converting to string...
+DEBUG DART: JSON string received: {"metadata":{"created":"2025-11-03 23:27:03.437063950 -05:00","file_path":"/Users/fabier/Documents/code/embedanythingindart/example/example_docs/doc3.txt","modified":"2025-11-03 23:27:03.437093158 -05:00"},"text":"Transformers Architecture\n\nThe transformer model revolutionized NLP with attention mechanisms."}
+DEBUG DART: Decoded JSON: {metadata: {created: 2025-11-03 23:27:03.437063950 -05:00, file_path: /Users/fabier/Documents/code/embedanythingindart/example/example_docs/doc3.txt, modified: 2025-11-03 23:27:03.437093158 -05:00}, text: Transformers Architecture
+
+The transformer model revolutionized NLP with attention mechanisms.}
+DEBUG DART: Extracted text (94 chars)
+DEBUG DART: Extracted metadata with 3 keys
+DEBUG DART: Added chunk 3 to stream
+DEBUG DART: Freed batch memory
+DEBUG DART: Callback completed, closing stream
+Embedded 4 chunks from all files
+
+Embedding only .txt files...
+Embedding directory: "example_docs"
+DEBUG DART: Directory callback fired
+DEBUG DART: Batch count: 0
+DEBUG DART: Freed batch memory
+DEBUG DART: Callback completed, closing stream
+Embedded 0 chunks from .txt files
+Distribution:
+
+Searching for "attention mechanism" across all files...
+Top 3 results:
+  1. doc3.txt (similarity: 0.4779)
+     "Transformers Architecture  The transformer model revolutioni..."
+  2. doc1.txt (similarity: 0.2644)
+     "Introduction to Neural Networks  Neural networks are computi..."
+  3. doc2.md (similarity: 0.1790)
+     "# Deep Learning  Deep learning uses multi-layer neural netwo..."
+
+--- Example 11: File-Specific Error Handling ---
+Attempting to embed non-existent file...
+Caught FileNotFoundError: File or directory not found: non_existent_file.txt
+Path: non_existent_file.txt
+
+Attempting to embed unsupported file format...
+Caught UnsupportedFileFormatError: Unsupported file format: unknown (file: test.xyz)
+Extension: unknown
+
+Attempting to embed non-existent directory...
+Caught FileNotFoundError for directory: File or directory not found: non_existent_dir
+
+--- Cleanup ---
+Disposing embedders...
+
+=== Example Complete ===
+
+Key Takeaways:
+  - Use ModelConfig for flexible model loading
+  - Batch processing is 5-10x faster for multiple texts
+  - Cosine similarity measures semantic similarity (0-1 range)
+  - Use try-catch with EmbedAnythingError for robust error handling
+  - File/directory embedding supports automatic chunking and metadata
+  - Stream-based directory embedding for memory-efficient processing
+  - Filter files by extension when embedding directories
+  - ChunkEmbedding provides filePath, chunkIndex, and other metadata
+  - Dispose embedders manually for predictable resource management
+  - Reuse embedders instead of creating many instances
+DEBUG DART: Callback completed, closing stream
