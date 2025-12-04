@@ -83,6 +83,20 @@ void main() {
 }
 ```
 
+## Documentation
+
+Comprehensive documentation is available to help you get the most out of EmbedAnythingInDart. We recommend reading the guides in the following order:
+
+1. **[Getting Started](doc/getting-started.md)** - Installation, prerequisites, and your first embedding
+2. **[Core Concepts](doc/core-concepts.md)** - Architecture, key classes, and fundamental concepts
+3. **[Usage Guide](doc/usage-guide.md)** - Common patterns, real-world examples, and best practices
+4. **[API Reference](doc/api-reference.md)** - Complete API documentation with all classes and methods
+5. **[Models and Configuration](doc/models-and-configuration.md)** - Choosing models, performance comparison, and configuration options
+6. **[Error Handling](doc/error-handling.md)** - Error types, handling strategies, and troubleshooting
+7. **[Advanced Topics](doc/advanced-topics.md)** - File embedding, streaming, optimization, and advanced patterns
+
+Each guide includes working code examples extracted from the test suite and example application.
+
 ## Supported Models
 
 | Model ID | Type | Dimensions | Speed | Quality | Best For |
@@ -347,7 +361,16 @@ For detailed troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## API Reference
 
-Full API documentation is available via dartdoc:
+### Comprehensive Documentation
+
+For detailed guides with examples and best practices, see the [Documentation](#documentation) section above, particularly:
+- **[API Reference](doc/api-reference.md)** - Complete API documentation with signatures, parameters, and examples
+- **[Usage Guide](doc/usage-guide.md)** - Practical usage patterns
+- **[Error Handling](doc/error-handling.md)** - Error types and handling strategies
+
+### Generated API Docs
+
+Auto-generated dartdoc API documentation is also available:
 
 ```bash
 dart doc
@@ -489,5 +512,6 @@ The underlying EmbedAnything Rust library is licensed under the Apache License 2
 
 **Questions or Issues?**
 - Open an issue on [GitHub](https://github.com/yourusername/embedanythingindart/issues)
-- Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common problems
-- Review the [API documentation](doc/api/index.html)
+- Read the [comprehensive documentation](doc/getting-started.md) for guides and examples
+- Check [Error Handling](doc/error-handling.md) for troubleshooting common problems
+- Review the [API Reference](doc/api-reference.md) for complete API documentation

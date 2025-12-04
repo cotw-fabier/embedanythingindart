@@ -1,5 +1,5 @@
 import 'package:hooks/hooks.dart';
-import 'package:native_toolchain_rs/native_toolchain_rs.dart';
+import 'package:native_toolchain_rust/native_toolchain_rust.dart';
 
 /// Build hook for Native Assets
 ///
@@ -7,7 +7,7 @@ import 'package:native_toolchain_rs/native_toolchain_rs.dart';
 /// into native libraries for the target platform.
 void main(List<String> args) async {
   await build(args, (input, output) async {
-    await RustBuilder(
+    await const RustBuilder(
       // Must match the package name in rust/Cargo.toml
       assetName: 'embedanything_dart',
     ).run(input: input, output: output);

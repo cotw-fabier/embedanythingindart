@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EmbedAnythingInDart is a Dart wrapper for the Rust-based EmbedAnything library, which provides high-performance vector embeddings for multimedia content. This project uses `native_toolchain_rs` to create FFI bindings between Dart and Rust, leveraging the Native Assets system for automatic cross-platform compilation.
+EmbedAnythingInDart is a Dart wrapper for the Rust-based EmbedAnything library, which provides high-performance vector embeddings for multimedia content. This project uses `native_toolchain_rust` to create FFI bindings between Dart and Rust, leveraging the Native Assets system for automatic cross-platform compilation.
 
 **Key Architecture:**
 - **FFI Layer**: C-compatible functions in Rust (rust/src/lib.rs) expose EmbedAnything functionality
@@ -254,8 +254,8 @@ dart test --enable-experiment=native-assets -r expanded
 
 **Dart:**
 - ffi: ^2.1.0 - FFI interop
-- hooks: ^0.20.4 - Native Assets hooks
-- native_toolchain_rs: Git dependency - Rust build automation
+- hooks: ^1.0.0 - Native Assets hooks
+- native_toolchain_rust: ^1.0.0 - Rust build automation
 
 **Rust:**
 - embed_anything: Git from StarlightSearch/EmbedAnything
@@ -265,5 +265,5 @@ dart test --enable-experiment=native-assets -r expanded
 
 **System Requirements:**
 - Rust toolchain 1.90.0 (pinned via rust-toolchain.toml)
-- Dart SDK ^3.11.0-36.0.dev
+- Dart SDK ^3.9.0
 - Platform-specific build tools (Xcode on macOS, MSVC on Windows, build-essential on Linux)
