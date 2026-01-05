@@ -2,15 +2,19 @@
 
 Welcome to EmbedAnythingInDart! This guide will help you install the library and create your first text embeddings in just a few minutes.
 
+> **🚀 Async-First**: EmbedAnythingInDart provides **async methods** that keep your UI responsive. For Flutter apps, **always use async methods** like `fromPretrainedHfAsync()` and `embedTextAsync()`. This guide shows both sync and async patterns, with async being recommended for most applications.
+
 ## What is EmbedAnythingInDart?
 
 EmbedAnythingInDart is a high-performance Dart wrapper for the Rust-based [EmbedAnything](https://github.com/StarlightSearch/EmbedAnything) library. It allows you to generate vector embeddings for text using state-of-the-art models from HuggingFace Hub. These embeddings enable powerful semantic search, similarity matching, and other natural language processing tasks.
 
 **Key Features:**
 - **Fast**: Rust-powered performance with native FFI bindings
+- **Async-First**: Non-blocking async API keeps your UI responsive
 - **Easy**: Idiomatic Dart API with automatic memory management
 - **Powerful**: Support for popular BERT and Jina models from HuggingFace
 - **Efficient**: Batch processing for 5-10x speedup over sequential operations
+- **Cancellable**: Long-running operations can be cancelled
 - **Cross-platform**: Works on macOS, Linux, and Windows
 
 ## Prerequisites
@@ -111,36 +115,63 @@ dart run --enable-experiment=native-assets your_app.dart
 
 Let's create a simple program that generates text embeddings and computes semantic similarity.
 
-### Hello World Example
+### Hello World Example (Async - Recommended)
 
 Create a file called `hello_embed.dart`:
 
 ```dart
 import 'package:embedanythingindart/embedanythingindart.dart';
 
-void main() {
+Future<void> main() async {
   print('Loading BERT model...');
 
-  // Load a pre-trained model from HuggingFace
+  // Load a pre-trained model asynchronously (doesn't freeze UI)
   // First load will download the model (~90MB)
-  final embedder = EmbedAnything.fromPretrainedHf(
-    model: EmbeddingModel.bert,
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
     modelId: 'sentence-transformers/all-MiniLM-L6-v2',
   );
 
   print('Model loaded successfully!\n');
 
-  // Generate embeddings for text
-  final text = 'Hello, world!';
-  final result = embedder.embedText(text);
+  try {
+    // Generate embeddings asynchronously (non-blocking)
+    final text = 'Hello, world!';
+    final result = await embedder.embedTextAsync(text);
 
-  print('Text: "$text"');
-  print('Embedding dimension: ${result.dimension}');
-  print('First 10 values: ${result.values.take(10).toList()}');
+    print('Text: "$text"');
+    print('Embedding dimension: ${result.dimension}');
+    print('First 10 values: ${result.values.take(10).toList()}');
+  } finally {
+    // Clean up resources
+    embedder.dispose();
+  }
 
-  // Clean up resources
-  embedder.dispose();
   print('\nDone!');
+}
+```
+
+**Why Async?** The async methods (`fromPretrainedHfAsync`, `embedTextAsync`) run heavy computations on background threads, keeping your UI responsive. This is essential for Flutter apps and any application where you don't want the UI to freeze.
+
+### Sync Alternative (For Simple Scripts)
+
+If you're writing a simple CLI script where blocking is acceptable:
+
+```dart
+import 'package:embedanythingindart/embedanythingindart.dart';
+
+void main() {
+  // Sync loading (blocks until complete)
+  final embedder = EmbedAnything.fromPretrainedHf(
+    model: EmbeddingModel.bert,
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+
+  try {
+    final result = embedder.embedText('Hello, world!');
+    print('Embedding dimension: ${result.dimension}');
+  } finally {
+    embedder.dispose();
+  }
 }
 ```
 
@@ -163,46 +194,49 @@ First 10 values: [0.0234, -0.1456, 0.0891, 0.2134, -0.0567, 0.1823, -0.0912, 0.0
 Done!
 ```
 
-> **First Run:** The first execution will take longer as it downloads the model from HuggingFace Hub. The model is cached locally in `~/.cache/huggingface/hub`, so subsequent runs load in under 100ms.
+> **First Run:** The first execution will take longer as it downloads the model from HuggingFace Hub. The model is cached locally in `~/.cache/huggingface/hub`, so subsequent runs load in under 100ms. **Using async methods keeps your app responsive during this download.**
 
 ## Computing Semantic Similarity
 
-Now let's explore a more practical example that demonstrates semantic similarity:
+Now let's explore a more practical example that demonstrates semantic similarity using async methods:
 
 ```dart
 import 'package:embedanythingindart/embedanythingindart.dart';
 
-void main() {
-  // Load model
-  final embedder = EmbedAnything.fromPretrainedHf(
-    model: EmbeddingModel.bert,
+Future<void> main() async {
+  // Load model asynchronously
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
     modelId: 'sentence-transformers/all-MiniLM-L6-v2',
   );
 
-  // Create embeddings for related texts
-  final text1 = 'I love programming in Dart';
-  final text2 = 'Dart is my favorite programming language';
-  final text3 = 'I enjoy cooking delicious meals';
+  try {
+    // Create embeddings for related texts
+    final text1 = 'I love programming in Dart';
+    final text2 = 'Dart is my favorite programming language';
+    final text3 = 'I enjoy cooking delicious meals';
 
-  final emb1 = embedder.embedText(text1);
-  final emb2 = embedder.embedText(text2);
-  final emb3 = embedder.embedText(text3);
+    // Use async batch embedding for best performance
+    final embeddings = await embedder.embedTextsBatchAsync([text1, text2, text3]);
+    final emb1 = embeddings[0];
+    final emb2 = embeddings[1];
+    final emb3 = embeddings[2];
 
-  // Compute semantic similarity
-  final similarity12 = emb1.cosineSimilarity(emb2);
-  final similarity13 = emb1.cosineSimilarity(emb3);
+    // Compute semantic similarity
+    final similarity12 = emb1.cosineSimilarity(emb2);
+    final similarity13 = emb1.cosineSimilarity(emb3);
 
-  print('Comparing texts:\n');
-  print('Text 1: "$text1"');
-  print('Text 2: "$text2"');
-  print('Similarity: ${similarity12.toStringAsFixed(4)} (highly related)\n');
+    print('Comparing texts:\n');
+    print('Text 1: "$text1"');
+    print('Text 2: "$text2"');
+    print('Similarity: ${similarity12.toStringAsFixed(4)} (highly related)\n');
 
-  print('Text 1: "$text1"');
-  print('Text 3: "$text3"');
-  print('Similarity: ${similarity13.toStringAsFixed(4)} (unrelated)\n');
-
-  // Clean up
-  embedder.dispose();
+    print('Text 1: "$text1"');
+    print('Text 3: "$text3"');
+    print('Similarity: ${similarity13.toStringAsFixed(4)} (unrelated)\n');
+  } finally {
+    // Clean up
+    embedder.dispose();
+  }
 }
 ```
 
@@ -229,44 +263,49 @@ Similarity: 0.1923 (unrelated)
 
 ## Batch Processing for Performance
 
-When processing multiple texts, use batch methods for significantly better performance:
+When processing multiple texts, use async batch methods for best performance while keeping your UI responsive:
 
 ```dart
 import 'package:embedanythingindart/embedanythingindart.dart';
 
-void main() {
-  final embedder = EmbedAnything.fromPretrainedHf(
-    model: EmbeddingModel.bert,
+Future<void> main() async {
+  // Load model asynchronously
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
     modelId: 'sentence-transformers/all-MiniLM-L6-v2',
   );
 
-  // Prepare multiple texts
-  final texts = [
-    'Machine learning is transforming technology',
-    'Artificial intelligence powers modern applications',
-    'Deep learning uses neural networks',
-    'Natural language processing enables text understanding',
-    'Computer vision recognizes images and patterns',
-  ];
+  try {
+    // Prepare multiple texts
+    final texts = [
+      'Machine learning is transforming technology',
+      'Artificial intelligence powers modern applications',
+      'Deep learning uses neural networks',
+      'Natural language processing enables text understanding',
+      'Computer vision recognizes images and patterns',
+    ];
 
-  print('Processing ${texts.length} texts...\n');
+    print('Processing ${texts.length} texts...\n');
 
-  // Process all at once (5-10x faster than individual calls)
-  final embeddings = embedder.embedTextsBatch(texts);
+    // Process all at once asynchronously (5-10x faster + non-blocking!)
+    final embeddings = await embedder.embedTextsBatchAsync(texts);
 
-  // Display results
-  for (var i = 0; i < texts.length; i++) {
-    print('[$i] "${texts[i]}"');
-    print('    Dimension: ${embeddings[i].dimension}');
+    // Display results
+    for (var i = 0; i < texts.length; i++) {
+      print('[$i] "${texts[i]}"');
+      print('    Dimension: ${embeddings[i].dimension}');
+    }
+
+    print('\n✓ Batch processing complete!');
+  } finally {
+    embedder.dispose();
   }
-
-  print('\n✓ Batch processing complete!');
-
-  embedder.dispose();
 }
 ```
 
-**Performance Benefit:** Batch processing is **5-10x faster** than processing texts individually. For 100 texts, batch processing takes ~170ms while individual calls take ~850ms.
+**Performance Benefits:**
+- **5-10x faster** than processing texts individually
+- **Non-blocking** - UI stays responsive during processing
+- For 100 texts, async batch processing takes ~170ms while individual sync calls take ~850ms and freeze the UI
 
 ## Error Handling
 
@@ -275,23 +314,24 @@ It's important to handle errors gracefully when loading models or generating emb
 ```dart
 import 'package:embedanythingindart/embedanythingindart.dart';
 
-void main() {
+Future<void> main() async {
   try {
     // Attempt to load an invalid model
-    final embedder = EmbedAnything.fromPretrainedHf(
-      model: EmbeddingModel.bert,
+    final embedder = await EmbedAnything.fromPretrainedHfAsync(
       modelId: 'invalid/model/path',
     );
     embedder.dispose();
   } on EmbedAnythingError catch (e) {
     print('Error loading model: ${e.message}');
 
-    // Handle specific error types
+    // Handle specific error types with pattern matching
     switch (e) {
       case ModelNotFoundError():
         print('Action: Check model ID on HuggingFace Hub');
       case InvalidConfigError():
         print('Action: Review configuration parameters');
+      case EmbeddingCancelledError():
+        print('Action: Operation was cancelled - this is expected if cancel() was called');
       case FFIError():
         print('Action: Check native library installation');
       default:
@@ -305,15 +345,17 @@ void main() {
 - `ModelNotFoundError`: The model ID doesn't exist on HuggingFace Hub
 - `InvalidConfigError`: Configuration parameters are invalid
 - `EmbeddingFailedError`: Text embedding operation failed
+- `EmbeddingCancelledError`: Async operation was cancelled (see [Cancellation](#cancellation))
 - `FFIError`: Problem with native library communication
 
 ## What You Can Do
 
 With EmbedAnythingInDart, you can:
 
-### Text Embedding
-- **Single text**: Generate embeddings for individual strings
-- **Batch processing**: Efficiently embed multiple texts at once
+### Text Embedding (Sync & Async)
+- **Single text**: Generate embeddings for individual strings (`embedText` / `embedTextAsync`)
+- **Batch processing**: Efficiently embed multiple texts at once (`embedTextsBatch` / `embedTextsBatchAsync`)
+- **Cancellation**: Cancel long-running async operations (`startEmbedTextAsync` with `cancel()`)
 - **Any length**: Handles short phrases to long documents (auto-truncated at 512 tokens)
 
 ### Semantic Operations
@@ -328,26 +370,25 @@ With EmbedAnythingInDart, you can:
 - **HuggingFace Hub**: Any compatible model from the hub
 
 ### File and Directory Processing
-- **File embedding**: Process PDF, TXT, MD, DOCX files with automatic chunking
-- **Directory streaming**: Efficiently embed entire document collections
+- **File embedding**: Process PDF, TXT, MD, DOCX files with automatic chunking (`embedFile` / `embedFileAsync`)
+- **Directory streaming**: Efficiently embed entire document collections (`embedDirectory` / `embedDirectoryAsync`)
 - **Metadata extraction**: Track file paths, page numbers, chunk indices
 
 ## Memory Management
 
 EmbedAnythingInDart provides automatic memory management, but you should still follow best practices:
 
-### Recommended Pattern
+### Recommended Pattern (Async)
 
 ```dart
-void processTexts() {
-  final embedder = EmbedAnything.fromPretrainedHf(
-    model: EmbeddingModel.bert,
+Future<void> processTexts() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
     modelId: 'sentence-transformers/all-MiniLM-L6-v2',
   );
 
   try {
-    // Use the embedder
-    final result = embedder.embedText('Test text');
+    // Use the embedder with async methods
+    final result = await embedder.embedTextAsync('Test text');
     print(result.dimension);
   } finally {
     // Always dispose in finally block
@@ -357,9 +398,11 @@ void processTexts() {
 ```
 
 **Best Practices:**
+- Use async methods (`fromPretrainedHfAsync`, `embedTextAsync`) to keep UI responsive
 - Call `dispose()` when you're done with an embedder
 - Use try-finally to ensure cleanup even if errors occur
 - Reuse embedders instead of creating many instances
+- Cancel pending async operations before disposing (use `startEmbedTextAsync` for cancellable operations)
 - Don't call `dispose()` multiple times (it's safe but unnecessary)
 
 > **Note:** Even without manual disposal, the library uses `NativeFinalizer` to clean up resources automatically when the embedder is garbage collected. However, manual disposal is recommended for predictable resource management in long-running applications.
@@ -433,8 +476,14 @@ Now that you've created your first embeddings, explore more advanced features:
 
 ## Quick Reference
 
-### Loading a Model
+### Loading a Model (Async - Recommended)
 ```dart
+// Async loading (recommended for Flutter apps)
+final embedder = await EmbedAnything.fromPretrainedHfAsync(
+  modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+);
+
+// Sync loading (for simple scripts)
 final embedder = EmbedAnything.fromPretrainedHf(
   model: EmbeddingModel.bert,
   modelId: 'sentence-transformers/all-MiniLM-L6-v2',
@@ -443,11 +492,29 @@ final embedder = EmbedAnything.fromPretrainedHf(
 
 ### Embedding Text
 ```dart
-// Single text
-final result = embedder.embedText('Your text here');
+// Async (recommended - non-blocking)
+final result = await embedder.embedTextAsync('Your text here');
+final results = await embedder.embedTextsBatchAsync(['Text 1', 'Text 2', 'Text 3']);
 
-// Batch of texts
+// Sync (for simple scripts - blocks UI)
+final result = embedder.embedText('Your text here');
 final results = embedder.embedTextsBatch(['Text 1', 'Text 2', 'Text 3']);
+```
+
+### Cancellable Operations
+```dart
+// Start an operation that can be cancelled
+final operation = embedder.startEmbedTextAsync('Some text');
+
+// Cancel if needed
+operation.cancel();
+
+// Handle cancellation
+try {
+  final result = await operation.future;
+} on EmbeddingCancelledError {
+  print('Operation was cancelled');
+}
 ```
 
 ### Computing Similarity
@@ -492,11 +559,14 @@ For more troubleshooting help, see the main [README troubleshooting section](../
 
 You've learned how to:
 - ✓ Install EmbedAnythingInDart and its prerequisites
-- ✓ Load embedding models from HuggingFace Hub
-- ✓ Generate embeddings for single and multiple texts
+- ✓ Load embedding models asynchronously (non-blocking)
+- ✓ Generate embeddings using async methods (`embedTextAsync`, `embedTextsBatchAsync`)
 - ✓ Compute semantic similarity between embeddings
-- ✓ Handle errors gracefully
+- ✓ Handle errors gracefully (including `EmbeddingCancelledError`)
+- ✓ Cancel long-running operations with `startEmbedTextAsync`
 - ✓ Manage memory with dispose()
 - ✓ Use predefined model configurations
+
+**Key Takeaway:** For Flutter apps and responsive applications, always use async methods (`fromPretrainedHfAsync`, `embedTextAsync`, etc.) to keep your UI responsive.
 
 Ready to build powerful semantic applications with Dart!

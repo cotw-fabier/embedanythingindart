@@ -114,6 +114,7 @@ void main() {
         FileNotFoundError() => 'File not found error',
         UnsupportedFileFormatError() => 'Unsupported file format error',
         FileReadError() => 'File read error',
+        EmbeddingCancelledError() => 'Embedding cancelled error',
       };
 
       expect(message, equals('Model not found error'));

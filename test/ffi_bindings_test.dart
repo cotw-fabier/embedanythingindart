@@ -59,20 +59,18 @@ void main() {
 
       data.ref.embeddingValues = values;
       data.ref.embeddingLen = 3;
-      data.ref.text = 'Test text'.toNativeUtf8();
-      data.ref.metadataJson = '{"file_path":"test.txt"}'.toNativeUtf8();
+      data.ref.textAndMetadataJson =
+          '{"text":"Test text","metadata":{"file_path":"test.txt"}}'.toNativeUtf8();
 
       expect(data.ref.embeddingLen, equals(3));
       expect(data.ref.embeddingValues[0], closeTo(1.0, 0.001));
       expect(data.ref.embeddingValues[1], closeTo(2.0, 0.001));
       expect(data.ref.embeddingValues[2], closeTo(3.0, 0.001));
-      expect(data.ref.text.toDartString(), equals('Test text'));
-      expect(data.ref.metadataJson.toDartString(),
-          equals('{"file_path":"test.txt"}'));
+      expect(data.ref.textAndMetadataJson.toDartString(),
+          equals('{"text":"Test text","metadata":{"file_path":"test.txt"}}'));
 
       // Cleanup
-      calloc.free(data.ref.text);
-      calloc.free(data.ref.metadataJson);
+      calloc.free(data.ref.textAndMetadataJson);
       calloc.free(values);
       calloc.free(data);
     });

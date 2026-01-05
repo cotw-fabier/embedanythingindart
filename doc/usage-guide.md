@@ -2,33 +2,39 @@
 
 This guide demonstrates common patterns and real-world usage scenarios for EmbedAnythingInDart. Each section provides complete, working examples that you can adapt to your own use cases.
 
+> **🚀 Async-First Design**: EmbedAnythingInDart provides **async methods** that don't block the UI thread. For Flutter apps and responsive applications, **always prefer async methods** (`embedTextAsync`, `embedTextsBatchAsync`, `fromPretrainedHfAsync`, etc.) over their synchronous counterparts.
+
 ## Table of Contents
 
-- [Pattern 1: Basic Text Embedding](#pattern-1-basic-text-embedding)
-- [Pattern 2: Batch Processing](#pattern-2-batch-processing)
+- [Pattern 1: Async Text Embedding (Recommended)](#pattern-1-async-text-embedding-recommended)
+- [Pattern 2: Async Batch Processing](#pattern-2-async-batch-processing)
 - [Pattern 3: Semantic Search](#pattern-3-semantic-search)
 - [Pattern 4: Semantic Clustering](#pattern-4-semantic-clustering)
-- [Pattern 5: File Embedding](#pattern-5-file-embedding)
-- [Pattern 6: Directory Streaming](#pattern-6-directory-streaming)
+- [Pattern 5: Async File Embedding](#pattern-5-async-file-embedding)
+- [Pattern 6: Directory Processing](#pattern-6-directory-processing)
+- [Pattern 7: Cancellable Operations](#pattern-7-cancellable-operations)
+- [Sync vs Async: When to Use Each](#sync-vs-async-when-to-use-each)
 - [Best Practices](#best-practices)
 
 ---
 
-## Pattern 1: Basic Text Embedding
+## Pattern 1: Async Text Embedding (Recommended)
 
-This pattern shows the most basic workflow: loading a model, embedding a single text, and properly cleaning up resources.
+This pattern shows the **recommended async workflow** for loading a model and embedding text without blocking the UI thread. Use async methods in Flutter apps and any application requiring responsive UIs.
 
 ```dart
 import 'package:embedanythingindart/embedanythingindart.dart';
 
-void basicTextEmbedding() {
-  // Load model using predefined configuration (recommended)
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+Future<void> asyncTextEmbedding() async {
+  // Load model asynchronously (doesn't freeze UI during download/load)
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
-    // Embed a single text
+    // Embed text asynchronously (doesn't block UI)
     final text = 'EmbedAnything is a fast embedding library written in Rust';
-    final result = embedder.embedText(text);
+    final result = await embedder.embedTextAsync(text);
 
     // Access embedding properties
     print('Embedding dimension: ${result.dimension}');
@@ -47,28 +53,37 @@ void basicTextEmbedding() {
 }
 ```
 
+**Why Async?**
+- **UI Responsiveness**: Model loading can take seconds (especially first-time downloads). Async keeps your UI responsive.
+- **Non-Blocking**: Embedding generation runs on background threads, not the main Dart isolate.
+- **Flutter-Ready**: Essential for Flutter apps where blocking the main thread causes frame drops.
+
 **Key Points:**
-- Use `ModelConfig.bertMiniLML6()` for general-purpose text embedding (fastest option)
-- The `embedText()` method returns an `EmbeddingResult` containing the vector
+- Use `fromPretrainedHfAsync()` for non-blocking model loading
+- Use `embedTextAsync()` for non-blocking text embedding
 - Dimension depends on the model (384 for BERT MiniLM-L6-v2)
 - Always use try-finally to ensure `dispose()` is called
 
 **When to Use:**
-- Single text embedding operations
-- Quick prototyping and testing
-- Low-volume embedding generation
+- ✅ **Flutter applications** - Always use async
+- ✅ **Responsive CLI tools** - For long-running operations
+- ✅ **Server applications** - To handle concurrent requests
+- ✅ **Any UI application** - To prevent freezing
 
 ---
 
-## Pattern 2: Batch Processing
+## Pattern 2: Async Batch Processing
 
-Batch processing is 5-10x faster than embedding texts individually. Use this pattern when you have multiple texts to embed.
+Batch processing is 5-10x faster than embedding texts individually, and **async batch processing keeps your UI responsive** while processing large numbers of texts.
 
 ```dart
 import 'package:embedanythingindart/embedanythingindart.dart';
 
-void batchProcessing() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+Future<void> asyncBatchProcessing() async {
+  // Load model asynchronously
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
     // Prepare multiple texts
@@ -80,9 +95,9 @@ void batchProcessing() {
       'Vector embeddings capture semantic meaning',
     ];
 
-    // Batch process all texts at once
+    // Batch process asynchronously (doesn't block UI)
     print('Generating embeddings for ${texts.length} texts...');
-    final results = embedder.embedTextsBatch(texts);
+    final results = await embedder.embedTextsBatchAsync(texts);
 
     // Process results
     print('Generated ${results.length} embeddings:');
@@ -104,32 +119,37 @@ void batchProcessing() {
 }
 ```
 
-**Performance Comparison:**
+**Async vs Sync Performance:**
 
 ```dart
-void performanceComparison() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+Future<void> performanceComparison() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
   final texts = List.generate(100, (i) => 'Sample text $i');
 
   try {
-    // ❌ SLOW: Individual embedding (not recommended)
+    // ❌ SLOWEST: Individual sync embedding (blocks UI!)
     final slowStart = DateTime.now();
     for (final text in texts) {
       embedder.embedText(text);
     }
     final slowDuration = DateTime.now().difference(slowStart);
-    print('Individual: ${slowDuration.inMilliseconds}ms');
-    // Output: Individual: ~5000ms
+    print('Individual sync: ${slowDuration.inMilliseconds}ms');
 
-    // ✅ FAST: Batch embedding (recommended)
-    final fastStart = DateTime.now();
+    // ⚠️ FASTER: Batch sync embedding (still blocks UI)
+    final batchStart = DateTime.now();
     embedder.embedTextsBatch(texts);
-    final fastDuration = DateTime.now().difference(fastStart);
-    print('Batch: ${fastDuration.inMilliseconds}ms');
-    // Output: Batch: ~500ms
+    final batchDuration = DateTime.now().difference(batchStart);
+    print('Batch sync: ${batchDuration.inMilliseconds}ms');
 
-    print('Speedup: ${slowDuration.inMilliseconds / fastDuration.inMilliseconds}x');
-    // Output: Speedup: 10x
+    // ✅ BEST: Batch async embedding (non-blocking!)
+    final asyncStart = DateTime.now();
+    await embedder.embedTextsBatchAsync(texts);
+    final asyncDuration = DateTime.now().difference(asyncStart);
+    print('Batch async: ${asyncDuration.inMilliseconds}ms');
+
+    // Async doesn't block UI during processing!
 
   } finally {
     embedder.dispose();
@@ -138,16 +158,16 @@ void performanceComparison() {
 ```
 
 **Key Points:**
-- Use `embedTextsBatch()` for 2+ texts to get significant speedup
-- Batch size is automatically optimized (configurable via `ModelConfig.defaultBatchSize`)
+- Use `embedTextsBatchAsync()` for non-blocking batch processing
+- Batch processing is 5-10x faster than individual calls
 - Results are returned in the same order as input texts
-- Memory usage scales linearly with batch size
+- UI remains responsive during async operations
 
 **When to Use:**
-- Embedding multiple documents, sentences, or paragraphs
-- Building search indices
-- Preprocessing datasets
-- Any scenario with 2+ texts
+- ✅ Building search indices in Flutter apps
+- ✅ Processing user uploads without freezing
+- ✅ Background indexing operations
+- ✅ Any batch operation in responsive applications
 
 ---
 
@@ -158,8 +178,11 @@ Semantic search finds the most relevant items from a collection based on meaning
 ```dart
 import 'package:embedanythingindart/embedanythingindart.dart';
 
-void semanticSearch() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+Future<void> semanticSearch() async {
+  // Load model asynchronously
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
     // Define search query
@@ -177,11 +200,11 @@ void semanticSearch() {
     print('Query: "$query"');
     print('Finding most similar from ${candidates.length} candidates...\n');
 
-    // Step 1: Embed the query
-    final queryEmb = embedder.embedText(query);
+    // Step 1: Embed the query asynchronously
+    final queryEmb = await embedder.embedTextAsync(query);
 
-    // Step 2: Embed all candidates (batch for performance)
-    final candidateEmbs = embedder.embedTextsBatch(candidates);
+    // Step 2: Embed all candidates asynchronously (batch for performance)
+    final candidateEmbs = await embedder.embedTextsBatchAsync(candidates);
 
     // Step 3: Compute similarities
     final similarities = candidateEmbs
@@ -214,8 +237,10 @@ void semanticSearch() {
 **Advanced: Threshold-Based Filtering**
 
 ```dart
-void searchWithThreshold() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.jinaV2Small());
+Future<void> searchWithThreshold() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'jinaai/jina-embeddings-v2-small-en',
+  );
 
   try {
     final query = 'machine learning algorithms';
@@ -227,8 +252,8 @@ void searchWithThreshold() {
       'Deep learning uses multiple layers of neural networks',
     ];
 
-    final queryEmb = embedder.embedText(query);
-    final candidateEmbs = embedder.embedTextsBatch(candidates);
+    final queryEmb = await embedder.embedTextAsync(query);
+    final candidateEmbs = await embedder.embedTextsBatchAsync(candidates);
 
     // Filter by similarity threshold
     const threshold = 0.5;
@@ -262,11 +287,11 @@ void searchWithThreshold() {
 ```
 
 **Key Points:**
+- Use `embedTextAsync()` and `embedTextsBatchAsync()` for responsive search
 - Cosine similarity returns values from -1 to 1 (typically 0 to 1 for natural language)
 - Higher scores indicate greater semantic similarity
 - Use batch embedding for candidates to maximize performance
 - Sort results descending by similarity score
-- Consider threshold filtering for large result sets (e.g., threshold > 0.5)
 
 **When to Use:**
 - Document search systems
@@ -284,8 +309,10 @@ Semantic clustering groups similar items together based on their meaning. This p
 ```dart
 import 'package:embedanythingindart/embedanythingindart.dart';
 
-void semanticClustering() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+Future<void> semanticClustering() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
     // Define items to cluster
@@ -298,9 +325,9 @@ void semanticClustering() {
       'Homemade pizza tastes amazing',        // Cooking cluster
     ];
 
-    // Step 1: Embed all items
+    // Step 1: Embed all items asynchronously
     print('Embedding ${items.length} items...');
-    final embeddings = embedder.embedTextsBatch(items);
+    final embeddings = await embedder.embedTextsBatchAsync(items);
 
     // Step 2: Compute pairwise similarity matrix
     print('Computing pairwise similarities...');
@@ -377,8 +404,10 @@ void semanticClustering() {
 **Advanced: Finding Outliers**
 
 ```dart
-void findOutliers() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+Future<void> findOutliers() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
     final items = [
@@ -389,7 +418,7 @@ void findOutliers() {
       'Gradient descent optimization',
     ];
 
-    final embeddings = embedder.embedTextsBatch(items);
+    final embeddings = await embedder.embedTextsBatchAsync(items);
 
     // Compute average similarity of each item to all others
     final avgSimilarities = <double>[];
@@ -437,22 +466,25 @@ void findOutliers() {
 
 ---
 
-## Pattern 5: File Embedding
+## Pattern 5: Async File Embedding
 
-File embedding automatically chunks documents and embeds each chunk with metadata. This enables semantic search within and across documents.
+File embedding automatically chunks documents and embeds each chunk with metadata. **Use `embedFileAsync()` for non-blocking file processing** in Flutter apps.
 
 ```dart
 import 'dart:io';
 import 'package:embedanythingindart/embedanythingindart.dart';
 
 Future<void> fileEmbedding() async {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  // Load model asynchronously
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
-    // Embed a file with automatic chunking
+    // Embed a file asynchronously with automatic chunking
     final filePath = 'path/to/document.txt';
 
-    final chunks = await embedder.embedFile(
+    final chunks = await embedder.embedFileAsync(
       filePath,
       chunkSize: 500,      // Target ~500 characters per chunk
       overlapRatio: 0.1,   // 10% overlap between chunks (preserves context)
@@ -501,12 +533,14 @@ Future<void> fileEmbedding() async {
 
 ```dart
 Future<void> documentSearchSystem() async {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.jinaV2Small());
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'jinaai/jina-embeddings-v2-small-en',
+  );
 
   try {
-    // Step 1: Index a document
+    // Step 1: Index a document asynchronously
     print('Indexing document...');
-    final chunks = await embedder.embedFile(
+    final chunks = await embedder.embedFileAsync(
       'machine_learning_guide.txt',
       chunkSize: 400,
       overlapRatio: 0.15,  // 15% overlap for better context preservation
@@ -518,7 +552,7 @@ Future<void> documentSearchSystem() async {
     final query = 'supervised learning algorithms';
     print('\nSearching for: "$query"');
 
-    final queryEmb = embedder.embedText(query);
+    final queryEmb = await embedder.embedTextAsync(query);
 
     // Rank chunks by relevance
     final rankedChunks = chunks
@@ -565,22 +599,24 @@ Future<void> documentSearchSystem() async {
 
 ```dart
 Future<void> supportedFormats() async {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
     // Supported formats: .txt, .md, .pdf, .docx, .html
 
-    // Text file
-    final txtChunks = await embedder.embedFile('document.txt');
+    // Text file - async for responsive UI
+    final txtChunks = await embedder.embedFileAsync('document.txt');
     print('TXT: ${txtChunks.length} chunks');
 
     // Markdown file
-    final mdChunks = await embedder.embedFile('readme.md');
+    final mdChunks = await embedder.embedFileAsync('readme.md');
     print('Markdown: ${mdChunks.length} chunks');
 
     // PDF file (requires PDF support in underlying library)
     try {
-      final pdfChunks = await embedder.embedFile('paper.pdf');
+      final pdfChunks = await embedder.embedFileAsync('paper.pdf');
       print('PDF: ${pdfChunks.length} chunks');
     } on UnsupportedFileFormatError catch (e) {
       print('PDF not supported: ${e.message}');
@@ -593,11 +629,11 @@ Future<void> supportedFormats() async {
 ```
 
 **Key Points:**
+- Use `embedFileAsync()` for non-blocking file processing
 - **chunkSize**: Target character count per chunk (300-1000 recommended)
 - **overlapRatio**: Overlap between consecutive chunks (0.1-0.2 preserves context)
 - **batchSize**: Number of chunks to process at once (32-64 recommended)
 - Chunks include metadata: `filePath`, `chunkIndex`, `text`
-- Use `ChunkEmbedding.cosineSimilarity()` to compare chunks directly
 
 **When to Use:**
 - Building document search systems
@@ -608,16 +644,55 @@ Future<void> supportedFormats() async {
 
 ---
 
-## Pattern 6: Directory Streaming
+## Pattern 6: Directory Processing
 
-Directory streaming processes multiple files efficiently without loading all chunks into memory at once. This is essential for large document collections.
+Directory processing handles multiple files efficiently. Use **`embedDirectoryAsync()`** for non-blocking batch processing, or **`embedDirectory()`** streaming for memory-efficient processing of large collections.
+
+### Async Batch Processing (Recommended for most use cases)
 
 ```dart
 import 'dart:io';
 import 'package:embedanythingindart/embedanythingindart.dart';
 
+Future<void> directoryAsyncProcessing() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+
+  try {
+    final directoryPath = 'path/to/documents';
+
+    print('Embedding all files in: $directoryPath');
+
+    // Process directory asynchronously (non-blocking)
+    final chunks = await embedder.embedDirectoryAsync(
+      directoryPath,
+      extensions: ['.txt', '.md'],
+      chunkSize: 500,
+      overlapRatio: 0.1,
+      batchSize: 32,
+    );
+
+    print('Processed ${chunks.length} chunks from directory');
+
+    // Use results
+    for (final chunk in chunks) {
+      print('Chunk from: ${chunk.filePath}');
+    }
+
+  } finally {
+    embedder.dispose();
+  }
+}
+```
+
+### Streaming Processing (Memory-efficient for large collections)
+
+```dart
 Future<void> directoryStreaming() async {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
     final directoryPath = 'path/to/documents';
@@ -650,7 +725,9 @@ Future<void> directoryStreaming() async {
 
 ```dart
 Future<void> buildSearchIndex() async {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.jinaV2Small());
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'jinaai/jina-embeddings-v2-small-en',
+  );
 
   try {
     final docsPath = 'knowledge_base';
@@ -693,7 +770,7 @@ Future<void> buildSearchIndex() async {
     // Now use the index for search
     print('\n--- Searching Index ---');
     final query = 'machine learning fundamentals';
-    final queryEmb = embedder.embedText(query);
+    final queryEmb = await embedder.embedTextAsync(query);
 
     final results = index
         .map((chunk) => (
@@ -738,7 +815,9 @@ Future<void> buildSearchIndex() async {
 
 ```dart
 Future<void> extensionFiltering() async {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
     final docsPath = 'mixed_documents';
@@ -788,7 +867,9 @@ Future<void> extensionFiltering() async {
 
 ```dart
 Future<void> robustDirectoryProcessing() async {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
     final docsPath = 'documents';
@@ -840,16 +921,235 @@ Future<void> robustDirectoryProcessing() async {
 
 ---
 
-## Best Practices
+## Pattern 7: Cancellable Operations
 
-### 1. Always Dispose Embedders
+For long-running operations, use `AsyncEmbeddingOperation` to allow cancellation. This is essential for responsive UIs where users may want to abort in-progress operations.
 
 ```dart
-// ✅ GOOD: Use try-finally
-void goodExample() {
+import 'package:embedanythingindart/embedanythingindart.dart';
+
+Future<void> cancellableEmbedding() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+
+  try {
+    // Start an embedding operation that can be cancelled
+    final operation = embedder.startEmbedTextAsync('Some very long text...');
+
+    // In a real app, you might wire this to a cancel button
+    // operation.cancel();
+
+    // You can check cancellation status
+    print('Is cancelled: ${operation.isCancelled}');
+
+    try {
+      // Wait for the result
+      final result = await operation.future;
+      print('Got embedding with dimension: ${result.dimension}');
+    } on EmbeddingCancelledError {
+      print('Operation was cancelled by user');
+    }
+
+  } finally {
+    embedder.dispose();
+  }
+}
+```
+
+**Flutter Integration Example:**
+
+```dart
+class EmbeddingWidget extends StatefulWidget {
+  @override
+  _EmbeddingWidgetState createState() => _EmbeddingWidgetState();
+}
+
+class _EmbeddingWidgetState extends State<EmbeddingWidget> {
+  AsyncEmbeddingOperation<EmbeddingResult>? _currentOperation;
+  EmbedAnything? _embedder;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEmbedder();
+  }
+
+  Future<void> _loadEmbedder() async {
+    _embedder = await EmbedAnything.fromPretrainedHfAsync(
+      modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+    );
+  }
+
+  Future<void> _startEmbedding(String text) async {
+    if (_embedder == null) return;
+
+    setState(() => _isLoading = true);
+
+    // Start cancellable operation
+    _currentOperation = _embedder!.startEmbedTextAsync(text);
+
+    try {
+      final result = await _currentOperation!.future;
+      print('Success: ${result.dimension} dimensions');
+    } on EmbeddingCancelledError {
+      print('Cancelled by user');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _cancelOperation() {
+    _currentOperation?.cancel();
+  }
+
+  @override
+  void dispose() {
+    _currentOperation?.cancel();
+    _embedder?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: () => _startEmbedding('Some text'),
+          child: Text('Start Embedding'),
+        ),
+        if (_isLoading)
+          ElevatedButton(
+            onPressed: _cancelOperation,
+            child: Text('Cancel'),
+          ),
+      ],
+    );
+  }
+}
+```
+
+**Key Points:**
+- Use `startEmbedTextAsync()` to get an `AsyncEmbeddingOperation`
+- Call `operation.cancel()` to request cancellation
+- Handle `EmbeddingCancelledError` when awaiting the future
+- Check `operation.isCancelled` to see cancellation status
+- Always cancel pending operations in widget `dispose()`
+
+---
+
+## Sync vs Async: When to Use Each
+
+EmbedAnythingInDart provides both synchronous and asynchronous APIs. **Always prefer async methods** unless you have a specific reason to use sync.
+
+### Async Methods (Recommended)
+
+| Async Method | Returns | Use Case |
+|-------------|---------|----------|
+| `fromPretrainedHfAsync()` | `Future<EmbedAnything>` | Loading models without blocking |
+| `embedTextAsync()` | `Future<EmbeddingResult>` | Single text embedding |
+| `embedTextsBatchAsync()` | `Future<List<EmbeddingResult>>` | Batch embedding |
+| `embedFileAsync()` | `Future<List<ChunkEmbedding>>` | File embedding |
+| `embedDirectoryAsync()` | `Future<List<ChunkEmbedding>>` | Directory embedding |
+| `startEmbedTextAsync()` | `AsyncEmbeddingOperation` | Cancellable embedding |
+
+**Benefits:**
+- ✅ Non-blocking - UI stays responsive
+- ✅ Flutter-compatible - No frame drops
+- ✅ Cancellable - User can abort operations
+- ✅ Better resource management
+
+### Sync Methods (Use with caution)
+
+| Sync Method | Returns | Use Case |
+|------------|---------|----------|
+| `fromConfig()` | `EmbedAnything` | Simple scripts, CLIs |
+| `embedText()` | `EmbeddingResult` | Quick one-off operations |
+| `embedTextsBatch()` | `List<EmbeddingResult>` | Batch operations in scripts |
+
+**When sync is acceptable:**
+- ⚠️ Command-line tools where blocking is OK
+- ⚠️ One-time scripts or batch jobs
+- ⚠️ Test code that doesn't need responsiveness
+
+### Decision Guide
+
+```
+Building a Flutter app?
+├─ YES → Use async methods exclusively
+└─ NO → Building a CLI tool?
+    ├─ YES → Sync OK for simple scripts, async for long operations
+    └─ NO → Building a server?
+        └─ Use async to handle concurrent requests
+```
+
+**Example: Same task, sync vs async:**
+
+```dart
+// ❌ SYNC: Freezes UI during model load and embedding
+void syncExample() {
   final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
   try {
-    final result = embedder.embedText('test');
+    final result = embedder.embedText('Hello'); // Blocks!
+    print(result.dimension);
+  } finally {
+    embedder.dispose();
+  }
+}
+
+// ✅ ASYNC: UI stays responsive
+Future<void> asyncExample() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+  try {
+    final result = await embedder.embedTextAsync('Hello'); // Non-blocking!
+    print(result.dimension);
+  } finally {
+    embedder.dispose();
+  }
+}
+```
+
+---
+
+## Best Practices
+
+### 1. Always Use Async Methods in Flutter
+
+```dart
+// ✅ BEST: Async methods keep UI responsive
+Future<void> flutterExample() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+  try {
+    final result = await embedder.embedTextAsync('test');
+    // UI stays responsive during embedding
+  } finally {
+    embedder.dispose();
+  }
+}
+
+// ❌ BAD: Sync methods freeze Flutter UI
+void badFlutterExample() {
+  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  final result = embedder.embedText('test'); // UI freezes!
+  embedder.dispose();
+}
+```
+
+### 2. Always Dispose Embedders
+
+```dart
+// ✅ GOOD: Use try-finally with async
+Future<void> goodExample() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+  try {
+    final result = await embedder.embedTextAsync('test');
     // ... use result ...
   } finally {
     embedder.dispose();  // Always called, even if exception occurs
@@ -857,34 +1157,40 @@ void goodExample() {
 }
 
 // ❌ BAD: No disposal (memory leak)
-void badExample() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
-  final result = embedder.embedText('test');
+Future<void> badExample() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+  final result = await embedder.embedTextAsync('test');
   // Memory leak! Rust resources not freed
 }
 ```
 
-### 2. Use Batch Methods for Multiple Texts
+### 3. Use Async Batch Methods for Multiple Texts
 
 ```dart
-// ✅ GOOD: Batch processing (5-10x faster)
-void efficientBatch() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+// ✅ GOOD: Async batch processing (5-10x faster, non-blocking)
+Future<void> efficientBatch() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
   try {
     final texts = ['text1', 'text2', 'text3', 'text4', 'text5'];
-    final results = embedder.embedTextsBatch(texts);  // Fast!
+    final results = await embedder.embedTextsBatchAsync(texts);  // Fast + non-blocking!
   } finally {
     embedder.dispose();
   }
 }
 
-// ❌ BAD: Individual calls (slow)
-void inefficientLoop() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+// ❌ BAD: Individual async calls (slower)
+Future<void> inefficientLoop() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
   try {
     final texts = ['text1', 'text2', 'text3', 'text4', 'text5'];
     for (final text in texts) {
-      embedder.embedText(text);  // Slow!
+      await embedder.embedTextAsync(text);  // Works but slower than batch!
     }
   } finally {
     embedder.dispose();
@@ -892,15 +1198,17 @@ void inefficientLoop() {
 }
 ```
 
-### 3. Reuse Embedders, Don't Create Many Instances
+### 4. Reuse Embedders, Don't Create Many Instances
 
 ```dart
 // ✅ GOOD: Single embedder for many operations
-void reuseEmbedder() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+Future<void> reuseEmbedder() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
   try {
     for (var i = 0; i < 100; i++) {
-      embedder.embedText('text $i');
+      await embedder.embedTextAsync('text $i');
     }
   } finally {
     embedder.dispose();
@@ -908,38 +1216,42 @@ void reuseEmbedder() {
 }
 
 // ❌ BAD: Creating many embedders (memory leak + slow)
-void createManyEmbedders() {
+Future<void> createManyEmbedders() async {
   for (var i = 0; i < 100; i++) {
-    final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
-    embedder.embedText('text $i');
+    final embedder = await EmbedAnything.fromPretrainedHfAsync(
+      modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+    );
+    await embedder.embedTextAsync('text $i');
     // No dispose - memory leak!
   }
 }
 ```
 
-### 4. Choose Appropriate Chunk Sizes
+### 5. Choose Appropriate Chunk Sizes
 
 ```dart
 Future<void> chunkSizeGuidelines() async {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   try {
     // Small chunks (200-300): Fine-grained search, more chunks
-    final fineChunks = await embedder.embedFile(
+    final fineChunks = await embedder.embedFileAsync(
       'document.txt',
       chunkSize: 250,
       overlapRatio: 0.15,  // More overlap for small chunks
     );
 
     // Medium chunks (400-600): Balanced (recommended)
-    final balancedChunks = await embedder.embedFile(
+    final balancedChunks = await embedder.embedFileAsync(
       'document.txt',
       chunkSize: 500,
       overlapRatio: 0.1,
     );
 
     // Large chunks (800-1000): Broader context, fewer chunks
-    final coarseChunks = await embedder.embedFile(
+    final coarseChunks = await embedder.embedFileAsync(
       'document.txt',
       chunkSize: 900,
       overlapRatio: 0.05,  // Less overlap for large chunks
@@ -961,7 +1273,7 @@ Future<void> chunkSizeGuidelines() async {
 - **800-1000 characters**: Paragraph-level, broader context
 - **Overlap**: 0.1-0.2 (10-20%) preserves context across boundaries
 
-### 5. Cache Embeddings for Reuse
+### 6. Cache Embeddings for Reuse
 
 ```dart
 import 'dart:convert';
@@ -1003,8 +1315,10 @@ class EmbeddingCache {
   }
 }
 
-void useCaching() {
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+Future<void> useCaching() async {
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
   final cache = EmbeddingCache('embeddings_cache.json');
 
   cache.load();  // Load existing cache
@@ -1016,8 +1330,8 @@ void useCaching() {
     var embedding = cache.get(text);
 
     if (embedding == null) {
-      // Not in cache - compute it
-      embedding = embedder.embedText(text);
+      // Not in cache - compute it asynchronously
+      embedding = await embedder.embedTextAsync(text);
       cache.put(text, embedding);
       print('Computed new embedding');
     } else {
@@ -1033,69 +1347,30 @@ void useCaching() {
 }
 ```
 
-### 6. Use Predefined Configs Unless Customizing
-
-```dart
-// ✅ GOOD: Use predefined configs (recommended)
-void usePredefinedConfigs() {
-  // General purpose - fastest
-  final fast = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
-
-  // Better quality
-  final better = EmbedAnything.fromConfig(ModelConfig.bertMiniLML12());
-
-  // Search-optimized
-  final search = EmbedAnything.fromConfig(ModelConfig.jinaV2Small());
-
-  // Highest quality
-  final best = EmbedAnything.fromConfig(ModelConfig.jinaV2Base());
-
-  // Clean up
-  fast.dispose();
-  better.dispose();
-  search.dispose();
-  best.dispose();
-}
-
-// ⚠️ CUSTOM: Only when you need specific settings
-void customConfig() {
-  final config = ModelConfig(
-    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
-    modelType: EmbeddingModel.bert,
-    dtype: ModelDtype.f16,      // Half precision for speed
-    normalize: true,            // Unit vector normalization
-    defaultBatchSize: 128,      // Larger batches
-  );
-
-  final embedder = EmbedAnything.fromConfig(config);
-  try {
-    // ... use embedder ...
-  } finally {
-    embedder.dispose();
-  }
-}
-```
-
 ### 7. Handle Errors Gracefully
 
 ```dart
 import 'package:embedanythingindart/embedanythingindart.dart';
 
-void robustErrorHandling() {
+Future<void> robustErrorHandling() async {
   EmbedAnything? embedder;
 
   try {
     // Model loading can fail
-    embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+    embedder = await EmbedAnything.fromPretrainedHfAsync(
+      modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+    );
 
     // Embedding operations can fail
-    final result = embedder.embedText('sample text');
+    final result = await embedder.embedTextAsync('sample text');
 
     // Use result...
 
   } on ModelNotFoundError catch (e) {
     print('Model not found: ${e.message}');
     print('Check HuggingFace Hub and network connectivity');
+  } on EmbeddingCancelledError catch (e) {
+    print('Operation was cancelled: ${e.message}');
   } on InvalidConfigError catch (e) {
     print('Invalid configuration: ${e.message}');
   } on EmbeddingFailedError catch (e) {
@@ -1113,24 +1388,29 @@ void robustErrorHandling() {
 }
 ```
 
-### 8. Monitor First Model Load
+### 8. Monitor First Model Load (Use Async!)
 
-The first time you load a model, it downloads from HuggingFace Hub (90-500MB). Subsequent loads are fast.
+The first time you load a model, it downloads from HuggingFace Hub (90-500MB). **Always use async for model loading** to keep your UI responsive during downloads.
 
 ```dart
 Future<void> firstLoadExample() async {
-  print('First load will download model (~100-500ms)...');
+  print('Loading model (first time downloads from HuggingFace)...');
   final start = DateTime.now();
 
-  final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  // Use async loading to keep UI responsive during download
+  final embedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
 
   final duration = DateTime.now().difference(start);
   print('Model loaded in ${duration.inMilliseconds}ms');
-  // First run: ~3000-10000ms (downloading)
+  // First run: ~3000-10000ms (downloading, but UI stays responsive!)
   // Subsequent runs: ~100-150ms (cached)
 
   try {
-    // Use embedder...
+    // Use embedder with async methods...
+    final result = await embedder.embedTextAsync('Hello');
+    print('Embedding dimension: ${result.dimension}');
   } finally {
     embedder.dispose();
   }

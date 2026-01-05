@@ -9,6 +9,8 @@
 /// - File embedding with automatic chunking (PDF, TXT, MD, DOCX, HTML)
 /// - Directory embedding with streaming results
 /// - Cosine similarity utilities
+/// - **Async operations** for non-blocking Flutter UI (embedTextAsync, etc.)
+/// - **Cancellable operations** via AsyncEmbeddingOperation
 library;
 
 export 'src/chunk_embedding.dart';

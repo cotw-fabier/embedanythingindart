@@ -7,6 +7,8 @@ import 'package:ffi/ffi.dart';
 import 'chunk_embedding.dart';
 import 'embedding_result.dart';
 import 'errors.dart';
+import 'ffi/async_bindings.dart' as async_ffi;
+import 'ffi/async_types.dart';
 import 'ffi/bindings.dart' as ffi;
 import 'ffi/ffi_utils.dart';
 import 'ffi/native_types.dart';
@@ -688,4 +690,555 @@ class EmbedAnything {
       _runtimeInitialized = true;
     }
   }
+
+  // ==========================================================================
+  // ASYNC METHODS - Non-blocking operations for Flutter UI
+  // ==========================================================================
+
+  /// Load a model asynchronously without blocking the UI.
+  ///
+  /// This is the recommended way to load models in Flutter applications.
+  /// Model loading (especially the first time with model downloads) can
+  /// take several seconds, so async loading keeps your UI responsive.
+  ///
+  /// Parameters:
+  /// - [modelId]: HuggingFace model identifier
+  ///   (e.g., 'sentence-transformers/all-MiniLM-L6-v2')
+  /// - [revision]: Git revision/branch (defaults to 'main')
+  /// - [dtype]: Model data type (default: auto)
+  ///
+  /// Throws:
+  /// - [ModelNotFoundError] if model doesn't exist on HuggingFace Hub
+  /// - [EmbeddingCancelledError] if operation was cancelled
+  /// - [FFIError] if model loading fails
+  ///
+  /// Example:
+  /// ```dart
+  /// // Load model without blocking UI
+  /// final embedder = await EmbedAnything.fromPretrainedHfAsync(
+  ///   modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  /// );
+  ///
+  /// try {
+  ///   final result = await embedder.embedTextAsync('Hello world');
+  ///   print('Dimension: ${result.dimension}');
+  /// } finally {
+  ///   embedder.dispose();
+  /// }
+  /// ```
+  static Future<EmbedAnything> fromPretrainedHfAsync({
+    required String modelId,
+    String revision = 'main',
+    ModelDtype dtype = ModelDtype.f32,
+  }) async {
+    // Initialize runtime first
+    _initializeRuntime();
+
+    final opId = withCString(modelId, (modelIdPtr) {
+      return withCString(revision, (revisionPtr) {
+        return async_ffi.startLoadModel(modelIdPtr, revisionPtr, dtype.value);
+      });
+    });
+
+    if (opId < 0) {
+      throwLastError('Failed to start model loading');
+    }
+
+    final handle = await _pollUntilComplete<Pointer<CEmbedder>>(
+      opId,
+      AsyncResultType.modelLoad,
+    );
+
+    // Create config for reference
+    final config = ModelConfig(
+      modelId: modelId,
+      modelType: EmbeddingModel.bert, // Default, actual type determined by model
+      revision: revision,
+      dtype: dtype,
+    );
+
+    return EmbedAnything._(handle, config);
+  }
+
+  /// Embed text asynchronously without blocking the UI.
+  ///
+  /// This is the async version of [embedText]. Use this in Flutter
+  /// applications to keep the UI responsive during embedding generation.
+  ///
+  /// Parameters:
+  /// - [text]: The text to embed
+  ///
+  /// Returns a [Future] that completes with the [EmbeddingResult].
+  ///
+  /// Throws:
+  /// - [EmbeddingFailedError] if embedding generation fails
+  /// - [EmbeddingCancelledError] if operation was cancelled
+  /// - [StateError] if the embedder has been disposed
+  ///
+  /// Example:
+  /// ```dart
+  /// final result = await embedder.embedTextAsync('Hello, world!');
+  /// print('Dimension: ${result.dimension}');
+  /// ```
+  Future<EmbeddingResult> embedTextAsync(String text) async {
+    _checkDisposed();
+
+    final opId = withCString(text, (textPtr) {
+      return async_ffi.startEmbedText(_handle, textPtr);
+    });
+
+    if (opId < 0) {
+      throwLastError('Failed to start text embedding');
+    }
+
+    return _pollUntilComplete<EmbeddingResult>(
+      opId,
+      AsyncResultType.singleEmbedding,
+    );
+  }
+
+  /// Embed multiple texts asynchronously without blocking the UI.
+  ///
+  /// This is the async version of [embedTextsBatch]. Use this in Flutter
+  /// applications for batch processing without freezing the UI.
+  ///
+  /// Parameters:
+  /// - [texts]: List of texts to embed
+  ///
+  /// Returns a [Future] that completes with a list of [EmbeddingResult]s.
+  ///
+  /// Throws:
+  /// - [EmbeddingFailedError] if embedding generation fails
+  /// - [EmbeddingCancelledError] if operation was cancelled
+  /// - [StateError] if the embedder has been disposed
+  ///
+  /// Example:
+  /// ```dart
+  /// final results = await embedder.embedTextsBatchAsync([
+  ///   'First text',
+  ///   'Second text',
+  ///   'Third text',
+  /// ]);
+  /// print('Generated ${results.length} embeddings');
+  /// ```
+  Future<List<EmbeddingResult>> embedTextsBatchAsync(List<String> texts) async {
+    _checkDisposed();
+
+    if (texts.isEmpty) {
+      return [];
+    }
+
+    // Convert Dart strings to C strings
+    final cStrings = texts.map((t) => stringToCString(t)).toList();
+    final cStringsArray = malloc<Pointer<Utf8>>(texts.length);
+
+    try {
+      // Fill the array
+      for (int i = 0; i < texts.length; i++) {
+        cStringsArray[i] = cStrings[i];
+      }
+
+      final opId = async_ffi.startEmbedTextsBatch(
+        _handle,
+        cStringsArray,
+        texts.length,
+      );
+
+      if (opId < 0) {
+        throwLastError('Failed to start batch embedding');
+      }
+
+      return _pollUntilComplete<List<EmbeddingResult>>(
+        opId,
+        AsyncResultType.batchEmbedding,
+      );
+    } finally {
+      // Free all C strings
+      for (final cStr in cStrings) {
+        freeCString(cStr);
+      }
+      malloc.free(cStringsArray);
+    }
+  }
+
+  /// Embed a file asynchronously without blocking the UI.
+  ///
+  /// This is the async version of [embedFile]. Use this in Flutter
+  /// applications for file processing without freezing the UI.
+  ///
+  /// Parameters:
+  /// - [filePath]: Path to the file to embed
+  /// - [chunkSize]: Maximum characters per chunk (default: 1000)
+  /// - [overlapRatio]: Overlap between chunks 0.0-1.0 (default: 0.0)
+  /// - [batchSize]: Batch size for embedding generation (default: 32)
+  ///
+  /// Returns a [Future] that completes with a list of [ChunkEmbedding]s.
+  ///
+  /// Throws:
+  /// - [FileNotFoundError] if the file does not exist
+  /// - [UnsupportedFileFormatError] if the file format is not supported
+  /// - [EmbeddingCancelledError] if operation was cancelled
+  /// - [StateError] if the embedder has been disposed
+  ///
+  /// Example:
+  /// ```dart
+  /// final chunks = await embedder.embedFileAsync('document.pdf');
+  /// for (final chunk in chunks) {
+  ///   print('Chunk ${chunk.chunkIndex}: ${chunk.text?.substring(0, 50)}...');
+  /// }
+  /// ```
+  Future<List<ChunkEmbedding>> embedFileAsync(
+    String filePath, {
+    int chunkSize = 1000,
+    double overlapRatio = 0.0,
+    int batchSize = 32,
+  }) async {
+    _checkDisposed();
+
+    // Allocate config struct
+    final config = allocateTextEmbedConfig(
+      chunkSize: chunkSize,
+      overlapRatio: overlapRatio,
+      batchSize: batchSize,
+      bufferSize: 100,
+    );
+
+    // Convert file path to C string
+    final filePathPtr = stringToCString(filePath);
+
+    try {
+      final opId = async_ffi.startEmbedFile(_handle, filePathPtr, config);
+
+      if (opId < 0) {
+        throwLastError('Failed to start file embedding');
+      }
+
+      return _pollUntilComplete<List<ChunkEmbedding>>(
+        opId,
+        AsyncResultType.fileEmbedding,
+      );
+    } finally {
+      freeCString(filePathPtr);
+      calloc.free(config);
+    }
+  }
+
+  /// Embed a directory asynchronously without blocking the UI.
+  ///
+  /// This is an async version that returns a Future instead of a Stream.
+  /// All results are collected and returned when processing is complete.
+  ///
+  /// Parameters:
+  /// - [directoryPath]: Path to the directory to embed
+  /// - [extensions]: Optional list of file extensions to include
+  /// - [chunkSize]: Maximum characters per chunk (default: 1000)
+  /// - [overlapRatio]: Overlap between chunks 0.0-1.0 (default: 0.0)
+  /// - [batchSize]: Batch size for embedding generation (default: 32)
+  ///
+  /// Returns a [Future] that completes with a list of [ChunkEmbedding]s.
+  ///
+  /// Throws:
+  /// - [FileNotFoundError] if the directory does not exist
+  /// - [EmbeddingCancelledError] if operation was cancelled
+  /// - [StateError] if the embedder has been disposed
+  ///
+  /// Example:
+  /// ```dart
+  /// final chunks = await embedder.embedDirectoryAsync(
+  ///   'documents/',
+  ///   extensions: ['.pdf', '.txt'],
+  /// );
+  /// print('Generated ${chunks.length} chunks');
+  /// ```
+  Future<List<ChunkEmbedding>> embedDirectoryAsync(
+    String directoryPath, {
+    List<String>? extensions,
+    int chunkSize = 1000,
+    double overlapRatio = 0.0,
+    int batchSize = 32,
+  }) async {
+    _checkDisposed();
+
+    // Allocate config struct
+    final config = allocateTextEmbedConfig(
+      chunkSize: chunkSize,
+      overlapRatio: overlapRatio,
+      batchSize: batchSize,
+      bufferSize: 100,
+    );
+
+    // Convert directory path to C string
+    final directoryPathPtr = stringToCString(directoryPath);
+
+    // Allocate extensions array if provided
+    Pointer<Pointer<Utf8>>? extensionsPtr;
+    if (extensions != null && extensions.isNotEmpty) {
+      extensionsPtr = allocateStringArray(extensions);
+    }
+
+    try {
+      final opId = async_ffi.startEmbedDirectory(
+        _handle,
+        directoryPathPtr,
+        extensionsPtr ?? nullptr,
+        extensions?.length ?? 0,
+        config,
+      );
+
+      if (opId < 0) {
+        throwLastError('Failed to start directory embedding');
+      }
+
+      return _pollUntilComplete<List<ChunkEmbedding>>(
+        opId,
+        AsyncResultType.fileEmbedding,
+      );
+    } finally {
+      freeCString(directoryPathPtr);
+      calloc.free(config);
+      if (extensionsPtr != null) {
+        freeStringArray(extensionsPtr, extensions!.length);
+      }
+    }
+  }
+
+  /// Start an async text embedding that can be cancelled.
+  ///
+  /// Unlike [embedTextAsync], this returns an [AsyncEmbeddingOperation]
+  /// that allows you to cancel the operation if needed.
+  ///
+  /// Parameters:
+  /// - [text]: The text to embed
+  ///
+  /// Returns an [AsyncEmbeddingOperation] with a [future] that completes
+  /// with the result, and a [cancel] method to abort the operation.
+  ///
+  /// Example:
+  /// ```dart
+  /// final operation = embedder.startEmbedTextAsync('Some long text...');
+  ///
+  /// // Later, if needed:
+  /// operation.cancel();
+  ///
+  /// try {
+  ///   final result = await operation.future;
+  /// } on EmbeddingCancelledError catch (e) {
+  ///   print('Operation was cancelled');
+  /// }
+  /// ```
+  AsyncEmbeddingOperation<EmbeddingResult> startEmbedTextAsync(String text) {
+    _checkDisposed();
+
+    final opId = withCString(text, (textPtr) {
+      return async_ffi.startEmbedText(_handle, textPtr);
+    });
+
+    if (opId < 0) {
+      // Return an operation that immediately fails
+      return AsyncEmbeddingOperation<EmbeddingResult>._(
+        opId,
+        Future.error(FFIError(
+          operation: 'startEmbedText',
+          nativeError: getLastErrorMessage(),
+        )),
+      );
+    }
+
+    final future = _pollUntilComplete<EmbeddingResult>(
+      opId,
+      AsyncResultType.singleEmbedding,
+    );
+
+    return AsyncEmbeddingOperation._(opId, future);
+  }
+
+  /// Poll for async operation completion.
+  ///
+  /// Returns when the operation completes (success/error/cancelled).
+  static Future<T> _pollUntilComplete<T>(int opId, int expectedType) async {
+    const pollInterval = Duration(milliseconds: 10);
+
+    while (true) {
+      final result = async_ffi.pollAsyncResult(opId);
+
+      switch (result.status) {
+        case AsyncPollStatus.success:
+          try {
+            return _extractResult<T>(result, expectedType);
+          } finally {
+            // Free error message if present
+            if (result.errorMessage != nullptr) {
+              async_ffi.freeAsyncErrorMessage(result.errorMessage);
+            }
+          }
+
+        case AsyncPollStatus.error:
+          final errorMsg = result.errorMessage != nullptr
+              ? result.errorMessage.toDartString()
+              : 'Unknown error';
+          if (result.errorMessage != nullptr) {
+            async_ffi.freeAsyncErrorMessage(result.errorMessage);
+          }
+          throwLastError(errorMsg);
+
+        case AsyncPollStatus.cancelled:
+          throw EmbeddingCancelledError();
+
+        case AsyncPollStatus.pending:
+        default:
+          await Future.delayed(pollInterval);
+      }
+    }
+  }
+
+  /// Extract typed result from CAsyncPollResult.
+  static T _extractResult<T>(CAsyncPollResult result, int expectedType) {
+    if (result.resultType != expectedType) {
+      throw FFIError(
+        operation: 'extractResult',
+        nativeError: 'Unexpected result type: ${result.resultType} (expected $expectedType)',
+      );
+    }
+
+    switch (expectedType) {
+      case AsyncResultType.singleEmbedding:
+        final ptr = result.data.cast<CTextEmbedding>();
+        final embedding = ptr.ref;
+        final values = _copyFloatArray(embedding.values, embedding.len);
+        // Free the embedding
+        ffi.freeEmbedding(ptr);
+        return EmbeddingResult(values) as T;
+
+      case AsyncResultType.batchEmbedding:
+        final ptr = result.data.cast<CTextEmbeddingBatch>();
+        final batch = ptr.ref;
+        final results = <EmbeddingResult>[];
+        for (int i = 0; i < batch.count; i++) {
+          final embedding = batch.embeddings[i];
+          final values = _copyFloatArray(embedding.values, embedding.len);
+          results.add(EmbeddingResult(values));
+        }
+        // Free the batch
+        ffi.freeEmbeddingBatch(ptr);
+        return results as T;
+
+      case AsyncResultType.fileEmbedding:
+        final ptr = result.data.cast<CEmbedDataBatch>();
+        final batch = ptr.ref;
+        final results = <ChunkEmbedding>[];
+        for (int i = 0; i < batch.count; i++) {
+          final embedData = batch.items[i];
+          results.add(_cEmbedDataToChunkEmbeddingStatic(embedData));
+        }
+        // Free the batch
+        ffi.freeEmbedDataBatch(ptr);
+        return results as T;
+
+      case AsyncResultType.modelLoad:
+        return result.data.cast<CEmbedder>() as T;
+
+      default:
+        throw FFIError(
+          operation: 'extractResult',
+          nativeError: 'Unknown result type: $expectedType',
+        );
+    }
+  }
+
+  /// Static version of _cEmbedDataToChunkEmbedding for use in static methods.
+  static ChunkEmbedding _cEmbedDataToChunkEmbeddingStatic(CEmbedData embedData) {
+    // Copy embedding vector
+    final embeddingValues = _copyFloatArray(
+      embedData.embeddingValues,
+      embedData.embeddingLen,
+    );
+    final embedding = EmbeddingResult(embeddingValues);
+
+    // Parse combined text and metadata JSON
+    String? text;
+    Map<String, String>? metadata;
+
+    if (embedData.textAndMetadataJson != nullptr) {
+      final jsonString = embedData.textAndMetadataJson.toDartString();
+      try {
+        final combined = jsonDecode(jsonString);
+        if (combined is Map) {
+          final textValue = combined['text'];
+          if (textValue != null && textValue is String) {
+            text = textValue;
+          }
+
+          final metadataValue = combined['metadata'];
+          if (metadataValue != null && metadataValue is Map) {
+            metadata = metadataValue.map(
+              (key, value) => MapEntry(key.toString(), value.toString()),
+            );
+          }
+        }
+      } catch (_) {
+        // Invalid JSON, leave text and metadata as null
+      }
+    }
+
+    return ChunkEmbedding(
+      embedding: embedding,
+      text: text,
+      metadata: metadata,
+    );
+  }
+}
+
+/// Represents an in-progress async embedding operation that can be cancelled.
+///
+/// This class wraps an async operation and provides:
+/// - A [future] that completes with the result
+/// - A [cancel] method to abort the operation
+/// - An [isCancelled] property to check cancellation status
+///
+/// Example:
+/// ```dart
+/// final operation = embedder.startEmbedTextAsync('Some text');
+///
+/// // Cancel if taking too long
+/// Future.delayed(Duration(seconds: 5), () {
+///   if (!operation.future.isCompleted) {
+///     operation.cancel();
+///   }
+/// });
+///
+/// try {
+///   final result = await operation.future;
+///   print('Got result: ${result.dimension} dimensions');
+/// } on EmbeddingCancelledError catch (e) {
+///   print('Operation was cancelled');
+/// }
+/// ```
+class AsyncEmbeddingOperation<T> {
+  final int _operationId;
+
+  /// The future that completes with the operation result.
+  final Future<T> future;
+
+  bool _cancelled = false;
+
+  AsyncEmbeddingOperation._(this._operationId, this.future);
+
+  /// Cancel the operation.
+  ///
+  /// After calling this, the [future] will complete with an
+  /// [EmbeddingCancelledError].
+  ///
+  /// This method is idempotent - calling it multiple times is safe.
+  void cancel() {
+    if (!_cancelled) {
+      _cancelled = true;
+      async_ffi.cancelAsyncOperation(_operationId);
+    }
+  }
+
+  /// Whether the operation has been cancelled.
+  bool get isCancelled => _cancelled;
+
+  /// The operation ID (for debugging).
+  int get operationId => _operationId;
 }

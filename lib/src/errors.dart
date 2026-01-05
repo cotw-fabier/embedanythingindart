@@ -28,6 +28,8 @@
 ///       print('Unsupported format: ${e.extension}');
 ///     case FileReadError():
 ///       print('File read error: ${e.reason}');
+///     case EmbeddingCancelledError():
+///       print('Embedding cancelled');
 ///   }
 /// }
 /// ```
@@ -309,4 +311,34 @@ class FileReadError extends EmbedAnythingError {
 
   @override
   String toString() => 'FileReadError: $message';
+}
+
+/// Error thrown when an async embedding operation is cancelled.
+///
+/// This occurs when:
+/// - User explicitly calls cancel() on an AsyncEmbeddingOperation
+/// - The operation is cancelled before completion
+///
+/// Example:
+/// ```dart
+/// final operation = embedder.startEmbedTextAsync('some text');
+///
+/// // Cancel the operation
+/// operation.cancel();
+///
+/// try {
+///   await operation.future;
+/// } on EmbeddingCancelledError catch (e) {
+///   print('Operation was cancelled');
+/// }
+/// ```
+class EmbeddingCancelledError extends EmbedAnythingError {
+  /// Creates a new EmbeddingCancelledError
+  EmbeddingCancelledError();
+
+  @override
+  String get message => 'Embedding operation was cancelled';
+
+  @override
+  String toString() => 'EmbeddingCancelledError: $message';
 }

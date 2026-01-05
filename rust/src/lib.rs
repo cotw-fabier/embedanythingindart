@@ -12,6 +12,10 @@ use embed_anything::Dtype;
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
 
+// Async embedding module - provides non-blocking operations
+pub mod async_embed;
+pub use async_embed::*;
+
 // ============================================================================
 // Thread-Local Error Storage
 // ============================================================================

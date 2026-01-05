@@ -2,6 +2,8 @@
 
 This guide explains the fundamental concepts and architecture of EmbedAnythingInDart, helping you understand how the library works and how to use it effectively.
 
+> **🚀 Async-First Design**: EmbedAnythingInDart provides **async methods** that don't block the UI thread. For Flutter apps, **always use async methods** (`fromPretrainedHfAsync`, `embedTextAsync`, etc.) to keep your UI responsive during model loading and embedding generation.
+
 ---
 
 ## Architecture Overview
@@ -85,19 +87,105 @@ This means **no manual build steps** - just run your Dart code and the Rust laye
 
 ---
 
+## Async Architecture
+
+EmbedAnythingInDart uses an async message-passing pattern to keep the Dart UI thread responsive while heavy embedding computations run on background threads.
+
+### The Problem with Sync FFI Calls
+
+When you call a synchronous FFI function, the Dart isolate blocks until Rust completes:
+
+```
+Dart (embedText) → FFI → Rust (RUNTIME.block_on) → BLOCKS
+                                      ↓
+                              Dart UI freezes
+```
+
+This causes UI freezes during model loading (seconds) and embedding generation (milliseconds).
+
+### The Async Solution
+
+Async methods use a background thread + polling pattern:
+
+```
+Dart (embedTextAsync)
+  ↓
+FFI: start_embed_text() → returns operation_id immediately
+  ↓ (spawns std::thread)
+Rust thread: runs embedding work, stores result in registry
+  ↓
+Dart: polling loop with await Future.delayed(10ms)
+  ↓
+FFI: poll_async_result(op_id) → checks registry
+  ↓
+When ready: returns embedding data or error
+  ↓
+Dart converts to EmbeddingResult
+```
+
+**Benefits:**
+- **Non-blocking**: UI remains responsive during all operations
+- **Cancellable**: Operations can be cancelled mid-execution
+- **Flutter-ready**: Essential for mobile and desktop apps
+
+### Operation Registry
+
+The async system uses a thread-safe registry to store operation results:
+
+```rust
+// Rust side - simplified
+static ASYNC_OPERATIONS: Arc<Mutex<HashMap<i64, AsyncOperation>>> = ...;
+
+pub struct AsyncOperation {
+    status: AsyncOperationStatus,  // InProgress, Success, Error, Cancelled
+    result: Option<AsyncResult>,
+    cancel_token: CancellationToken,
+}
+```
+
+Each async call returns a unique `operation_id` that Dart uses to poll for results.
+
+### Cancellation Support
+
+Long-running operations can be cancelled using `CancellationToken`:
+
+```dart
+// Dart side
+final operation = embedder.startEmbedTextAsync('Long text...');
+
+// User clicks cancel button
+operation.cancel();
+
+// Future completes with EmbeddingCancelledError
+try {
+  await operation.future;
+} on EmbeddingCancelledError {
+  print('Operation cancelled');
+}
+```
+
+Cancellation is cooperative - the Rust thread checks the token at checkpoints and exits gracefully.
+
+---
+
 ## Key Classes
 
 ### EmbedAnything
 
 The `EmbedAnything` class is your main entry point for generating embeddings. It manages the lifecycle of a machine learning model loaded in memory.
 
-**Creating an Embedder:**
+**Creating an Embedder (Async - Recommended):**
 
 ```dart
-// Method 1: Using predefined configurations (recommended)
+// Method 1: Async loading (recommended for Flutter)
+final embedder = await EmbedAnything.fromPretrainedHfAsync(
+  modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+);
+
+// Method 2: Sync with predefined configurations (for scripts)
 final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
 
-// Method 2: Custom configuration
+// Method 3: Custom configuration
 final config = ModelConfig(
   modelId: 'sentence-transformers/all-MiniLM-L6-v2',
   modelType: EmbeddingModel.bert,
@@ -107,25 +195,29 @@ final config = ModelConfig(
 );
 final embedder = EmbedAnything.fromConfig(config);
 
-// Method 3: Direct model loading (simpler, less control)
+// Method 4: Direct sync model loading (simpler, less control)
 final embedder = EmbedAnything.fromPretrainedHf(
   model: EmbeddingModel.bert,
   modelId: 'sentence-transformers/all-MiniLM-L6-v2',
 );
 ```
 
-**Lifecycle Pattern:**
+**Lifecycle Pattern (Async):**
 
 ```dart
-// 1. Create - Load model into memory
-final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+// 1. Create - Load model asynchronously (non-blocking)
+final embedder = await EmbedAnything.fromPretrainedHfAsync(
+  modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+);
 
-// 2. Use - Generate embeddings
-final result = embedder.embedText('Hello, world!');
-final batch = embedder.embedTextsBatch(['Text 1', 'Text 2']);
-
-// 3. Dispose - Free native resources
-embedder.dispose();
+try {
+  // 2. Use - Generate embeddings asynchronously
+  final result = await embedder.embedTextAsync('Hello, world!');
+  final batch = await embedder.embedTextsBatchAsync(['Text 1', 'Text 2']);
+} finally {
+  // 3. Dispose - Free native resources
+  embedder.dispose();
+}
 ```
 
 > **⚠️ Important:** You MUST call `dispose()` when done with an embedder. Failure to dispose will cause memory leaks in the Rust layer. Use try-finally blocks to ensure cleanup:
@@ -142,10 +234,21 @@ try {
 
 **Main Methods:**
 
-- `embedText(String text)` → `EmbeddingResult` - Embed a single text
-- `embedTextsBatch(List<String> texts)` → `List<EmbeddingResult>` - Batch embed multiple texts (5-10x faster)
-- `embedFile(String filePath, ...)` → `Future<List<ChunkEmbedding>>` - Embed a file with automatic chunking
-- `embedDirectory(String path, ...)` → `Stream<ChunkEmbedding>` - Stream embeddings from all files in a directory
+*Async Methods (Recommended - Non-blocking):*
+- `fromPretrainedHfAsync(modelId)` → `Future<EmbedAnything>` - Load model without blocking
+- `embedTextAsync(String text)` → `Future<EmbeddingResult>` - Embed a single text
+- `embedTextsBatchAsync(List<String> texts)` → `Future<List<EmbeddingResult>>` - Batch embed multiple texts
+- `embedFileAsync(String filePath, ...)` → `Future<List<ChunkEmbedding>>` - Embed a file with automatic chunking
+- `embedDirectoryAsync(String path, ...)` → `Future<List<ChunkEmbedding>>` - Embed all files in a directory
+- `startEmbedTextAsync(String text)` → `AsyncEmbeddingOperation` - Start a cancellable operation
+
+*Sync Methods (For Scripts - Blocking):*
+- `embedText(String text)` → `EmbeddingResult` - Embed a single text (blocks)
+- `embedTextsBatch(List<String> texts)` → `List<EmbeddingResult>` - Batch embed multiple texts (blocks)
+- `embedFile(String filePath, ...)` → `Future<List<ChunkEmbedding>>` - Embed a file
+- `embedDirectory(String path, ...)` → `Stream<ChunkEmbedding>` - Stream embeddings from directory
+
+*Lifecycle:*
 - `dispose()` - Free native resources immediately
 
 **Properties:**
@@ -275,6 +378,79 @@ print('Similarity score: $maxSim');
 
 ---
 
+### AsyncEmbeddingOperation
+
+The `AsyncEmbeddingOperation` class represents an in-progress async operation that can be cancelled. It's returned by `startEmbedTextAsync()`.
+
+**Structure:**
+
+```dart
+final operation = embedder.startEmbedTextAsync('Some text to embed');
+
+// Check operation ID (unique identifier)
+print(operation.operationId);  // int - unique ID for this operation
+
+// Check cancellation status
+print(operation.isCancelled);  // bool - false until cancel() is called
+
+// Cancel the operation
+operation.cancel();  // Sets isCancelled = true, signals Rust to abort
+
+// Await the result
+try {
+  final result = await operation.future;  // Future<EmbeddingResult>
+  print(result.dimension);
+} on EmbeddingCancelledError {
+  print('Operation was cancelled');
+}
+```
+
+**Flutter Integration Example:**
+
+```dart
+class EmbeddingService {
+  EmbedAnything? _embedder;
+  AsyncEmbeddingOperation<EmbeddingResult>? _currentOperation;
+
+  Future<void> init() async {
+    _embedder = await EmbedAnything.fromPretrainedHfAsync(
+      modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+    );
+  }
+
+  Future<EmbeddingResult?> embedWithCancellation(String text) async {
+    // Cancel any previous operation
+    _currentOperation?.cancel();
+
+    // Start new operation
+    _currentOperation = _embedder!.startEmbedTextAsync(text);
+
+    try {
+      return await _currentOperation!.future;
+    } on EmbeddingCancelledError {
+      return null;  // User cancelled
+    }
+  }
+
+  void cancelCurrent() {
+    _currentOperation?.cancel();
+  }
+
+  void dispose() {
+    _currentOperation?.cancel();
+    _embedder?.dispose();
+  }
+}
+```
+
+**Key Points:**
+- Use `startEmbedTextAsync()` when you need cancellation support
+- Call `cancel()` to request cancellation (idempotent - safe to call multiple times)
+- Handle `EmbeddingCancelledError` when awaiting the future
+- Always cancel pending operations before disposing the embedder
+
+---
+
 ### ModelConfig
 
 The `ModelConfig` class provides type-safe configuration for loading embedding models from HuggingFace Hub.
@@ -374,10 +550,13 @@ try {
 **Always** use try-finally to ensure disposal, even when errors occur:
 
 ```dart
-final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+// Async pattern (recommended)
+final embedder = await EmbedAnything.fromPretrainedHfAsync(
+  modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+);
 try {
   // Your code here - may throw exceptions
-  final result = embedder.embedText(userInput);
+  final result = await embedder.embedTextAsync(userInput);
   processResult(result);
 } finally {
   // ALWAYS executes, even on exception
@@ -389,18 +568,25 @@ This pattern guarantees cleanup regardless of:
 - Exceptions thrown during embedding
 - Early returns from the function
 - Async/await interruptions
+- Cancellation errors (`EmbeddingCancelledError`)
 
 ### Multiple Embedders
 
 You can have multiple embedders in memory simultaneously:
 
 ```dart
-final bertEmbedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
-final jinaEmbedder = EmbedAnything.fromConfig(ModelConfig.jinaV2Small());
+// Load both models asynchronously
+final bertEmbedder = await EmbedAnything.fromPretrainedHfAsync(
+  modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+);
+final jinaEmbedder = await EmbedAnything.fromPretrainedHfAsync(
+  modelId: 'jinaai/jina-embeddings-v2-small-en',
+);
 
 try {
-  final bertResult = bertEmbedder.embedText('test');
-  final jinaResult = jinaEmbedder.embedText('test');
+  // Use async methods for non-blocking embedding
+  final bertResult = await bertEmbedder.embedTextAsync('test');
+  final jinaResult = await jinaEmbedder.embedTextAsync('test');
 
   // Compare models
   print('BERT dimension: ${bertResult.dimension}');    // 384

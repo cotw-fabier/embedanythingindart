@@ -170,6 +170,8 @@ void main() async {
         print('Action: Use supported formats (.txt, .md, .pdf, etc.)');
       case FileReadError():
         print('Action: Check file permissions and accessibility');
+      case EmbeddingCancelledError():
+        print('Action: Operation was cancelled - this is expected if cancel() was called');
     }
     print('');
   }
@@ -462,6 +464,123 @@ Applications span from recommendation systems to autonomous vehicles.
   }
 
   // ============================================================================
+  // Example 12: Async Model Loading (Recommended for Flutter)
+  // ============================================================================
+  print('--- Example 12: Async Model Loading (Recommended for Flutter) ---');
+
+  print('Loading model asynchronously (non-blocking)...');
+  final asyncEmbedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+  print('Async model loaded! Config: ${asyncEmbedder.config?.modelId}');
+
+  // Use async embedding
+  final asyncResult = await asyncEmbedder.embedTextAsync('Hello from async!');
+  print('Async embedding dimension: ${asyncResult.dimension}');
+  print('Note: Async methods keep the UI responsive during model loading/embedding\n');
+
+  asyncEmbedder.dispose();
+
+  // ============================================================================
+  // Example 13: Async Batch Embedding
+  // ============================================================================
+  print('--- Example 13: Async Batch Embedding ---');
+
+  final asyncBatchEmbedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+
+  try {
+    final batchTexts = [
+      'Async embedding is non-blocking',
+      'Perfect for Flutter applications',
+      'Keeps the UI responsive',
+    ];
+
+    print('Embedding ${batchTexts.length} texts asynchronously...');
+    final batchResults = await asyncBatchEmbedder.embedTextsBatchAsync(batchTexts);
+
+    for (int i = 0; i < batchResults.length; i++) {
+      print('  [$i] "${batchTexts[i].substring(0, 20)}..." -> ${batchResults[i].dimension} dims');
+    }
+    print('');
+  } finally {
+    asyncBatchEmbedder.dispose();
+  }
+
+  // ============================================================================
+  // Example 14: Cancellable Operations
+  // ============================================================================
+  print('--- Example 14: Cancellable Operations ---');
+
+  final cancelEmbedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+
+  try {
+    print('Starting a cancellable embedding operation...');
+    final operation = cancelEmbedder.startEmbedTextAsync('This is a cancellable operation');
+
+    print('Operation ID: ${operation.operationId}');
+    print('Is cancelled: ${operation.isCancelled}');
+
+    // Demonstrate cancellation (uncomment to test cancellation)
+    // operation.cancel();
+    // print('Cancelled: ${operation.isCancelled}');
+
+    try {
+      final result = await operation.future;
+      print('Operation completed! Dimension: ${result.dimension}');
+    } on EmbeddingCancelledError {
+      print('Operation was cancelled as expected');
+    }
+    print('');
+  } finally {
+    cancelEmbedder.dispose();
+  }
+
+  // ============================================================================
+  // Example 15: Async File Embedding
+  // ============================================================================
+  print('--- Example 15: Async File Embedding ---');
+
+  final fileAsyncEmbedder = await EmbedAnything.fromPretrainedHfAsync(
+    modelId: 'sentence-transformers/all-MiniLM-L6-v2',
+  );
+
+  final asyncExampleFile = 'async_example_doc.txt';
+  try {
+    File(asyncExampleFile).writeAsStringSync('''
+Async file embedding example.
+
+This demonstrates the embedFileAsync method which processes files
+without blocking the UI thread. Perfect for Flutter applications
+that need to remain responsive during document processing.
+
+The async pattern uses background threads in Rust with polling
+from Dart, allowing smooth UI updates while heavy ML work runs.
+''');
+
+    print('Embedding file asynchronously...');
+    final chunks = await fileAsyncEmbedder.embedFileAsync(
+      asyncExampleFile,
+      chunkSize: 150,
+    );
+
+    print('Got ${chunks.length} chunks:');
+    for (final chunk in chunks) {
+      print('  - Chunk ${chunk.chunkIndex}: ${chunk.embedding.dimension} dims');
+    }
+    print('');
+  } finally {
+    fileAsyncEmbedder.dispose();
+    try {
+      final file = File(asyncExampleFile);
+      if (file.existsSync()) file.deleteSync();
+    } catch (_) {}
+  }
+
+  // ============================================================================
   // Cleanup
   // ============================================================================
   print('--- Cleanup ---');
@@ -482,4 +601,10 @@ Applications span from recommendation systems to autonomous vehicles.
   print('  - ChunkEmbedding provides filePath, chunkIndex, and other metadata');
   print('  - Dispose embedders manually for predictable resource management');
   print('  - Reuse embedders instead of creating many instances');
+  print('');
+  print('Async-Specific Takeaways:');
+  print('  - Use async methods (fromPretrainedHfAsync, embedTextAsync) for Flutter apps');
+  print('  - Async operations keep the UI responsive during model loading/embedding');
+  print('  - Use startEmbedTextAsync() for operations that may need cancellation');
+  print('  - Handle EmbeddingCancelledError when using cancellable operations');
 }
