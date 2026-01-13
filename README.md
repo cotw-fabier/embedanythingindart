@@ -209,6 +209,30 @@ change - previous versions sent all texts to Rust at once. The chunking uses
 `ModelConfig.defaultBatchSize` (default: 32). To process a specific chunk size,
 pass the `chunkSize` parameter.
 
+#### Thread Pool Configuration
+
+For large batch operations, you can limit the number of threads used for parallel
+computation. This is especially important on machines with many CPU cores:
+
+```dart
+// Configure BEFORE loading any models (call once at app startup)
+EmbedAnything.configureThreadPool(4);  // Limit to 4 threads
+
+// Check current thread pool size
+print('Thread pool size: ${EmbedAnything.getThreadPoolSize()}');
+
+// Now load models - they will use the configured thread pool
+final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+```
+
+**Recommended thread counts:**
+- 4-8 threads for most use cases
+- 2-4 threads for memory-constrained environments
+- Default (num_cpus) may cause high memory usage on machines with many cores
+
+**Note:** Thread pool configuration must happen before ANY embedding operations.
+Once the pool is initialized, it cannot be reconfigured.
+
 ### Computing Similarity
 
 ```dart

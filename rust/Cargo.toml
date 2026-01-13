@@ -46,6 +46,12 @@ tokio-util = "0.7"
 # Static lazy initialization for async registry
 lazy_static = "1.5"
 
+# Rayon for controlling thread pool
+rayon = "1.10"
+
+# CPU count for default thread pool size
+num_cpus = "1.16"
+
 [profile.release]
 opt-level = 3
 lto = true

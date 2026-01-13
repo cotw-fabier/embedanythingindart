@@ -692,6 +692,51 @@ class EmbedAnything {
   }
 
   // ==========================================================================
+  // THREAD POOL CONFIGURATION
+  // ==========================================================================
+
+  /// Configure the maximum number of threads for parallel embedding operations.
+  ///
+  /// **MUST be called BEFORE creating any EmbedAnything instances or loading
+  /// any models.** Once the thread pool is initialized (which happens on first
+  /// use), this setting cannot be changed.
+  ///
+  /// The underlying ML library (Candle) uses Rayon for parallel matrix
+  /// operations. By default, Rayon creates one thread per CPU core, which
+  /// can be excessive on machines with many cores.
+  ///
+  /// Recommended values:
+  /// - 4-8 threads for most use cases
+  /// - 2-4 threads for memory-constrained environments
+  /// - 0 to use the default (num_cpus)
+  ///
+  /// Parameters:
+  /// - [numThreads]: Maximum threads (0 = use default/num_cpus)
+  ///
+  /// Returns `true` if configuration succeeded, `false` if called too late.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Configure BEFORE loading any models
+  /// EmbedAnything.configureThreadPool(4);
+  ///
+  /// // Now load models and embed
+  /// final embedder = EmbedAnything.fromConfig(ModelConfig.bertMiniLML6());
+  /// ```
+  static bool configureThreadPool(int numThreads) {
+    final result = ffi.configureThreadPool(numThreads);
+    return result == 0;
+  }
+
+  /// Get the current thread pool size.
+  ///
+  /// Returns the number of threads in the Rayon thread pool.
+  /// If [configureThreadPool] was not called, returns the default (num_cpus).
+  static int getThreadPoolSize() {
+    return ffi.getThreadPoolSize();
+  }
+
+  // ==========================================================================
   // DEVICE QUERY METHODS - Check compute device availability
   // ==========================================================================
 

@@ -139,6 +139,13 @@ These three MUST match exactly:
 - Errors stored in thread-local storage, never throw across FFI boundary
 - Input validation before unsafe operations
 - Tokio runtime initialized once via Lazy static
+- Async operations use `RUNTIME.spawn()` (Tokio tasks) NOT `thread::spawn` (OS threads)
+
+**Thread Pool Configuration:**
+- Rayon is used by Candle (ML framework) for parallel matrix operations
+- By default, Rayon creates num_cpus threads which can be excessive
+- Call `configure_thread_pool(n)` BEFORE any embedding to limit threads
+- Once the pool is initialized, it cannot be reconfigured
 
 **EmbedAnything API Specifics:**
 - `Embedder::from_pretrained_hf()` is **synchronous** (not async)
@@ -204,6 +211,40 @@ In `rust/src/lib.rs`:
 3. Test with `dart run --enable-experiment=native-assets`
 4. May need platform-specific feature flags in Cargo.toml
 
+## Performance & Memory Management
+
+**Large Batch Processing:**
+- `embedTextsBatchAsync()` auto-chunks large batches (default: 32 items per chunk)
+- Use `chunkSize` parameter to override chunk size
+- Use `onProgress` callback for progress tracking
+- Memory stays bounded during processing (~300MB for 3000 embeddings)
+
+**Thread Pool Best Practices:**
+```dart
+// MUST be called BEFORE loading any models
+EmbedAnything.configureThreadPool(4);  // Limit to 4 threads
+
+// Then load model and embed
+final embedder = await EmbedAnything.fromPretrainedHfAsync(...);
+final results = await embedder.embedTextsBatchAsync(
+  texts,
+  chunkSize: 32,
+  onProgress: (done, total) => print('$done/$total'),
+);
+```
+
+**Memory Benchmarks (3000 embeddings, 4 threads):**
+- Model load: ~240 MB
+- Peak during embedding: ~320 MB
+- After dispose: ~240 MB
+- Throughput: ~156 items/sec
+
+**Memory Stress Test:**
+```bash
+dart test --enable-experiment=native-assets test/memory_stress_test.dart -r expanded
+dart run --enable-experiment=native-assets example/memory_stress_example.dart
+```
+
 ## Troubleshooting
 
 **"Asset not found" error:**
@@ -230,6 +271,12 @@ In `rust/src/lib.rs`:
 - Models cached in ~/.cache/huggingface/hub
 - Can set HF_TOKEN environment variable for private models
 
+**High memory usage or too many threads:**
+- Call `EmbedAnything.configureThreadPool(4)` BEFORE loading models
+- Use async API (`embedTextsBatchAsync`) with chunking for large batches
+- Default Rayon thread pool uses num_cpus threads (can be 16+ on modern machines)
+- Run `test/memory_stress_test.dart` to verify memory behavior
+
 ## Testing Strategy
 
 **Unit Tests (test/embedanythingindart_test.dart):**
@@ -240,9 +287,20 @@ In `rust/src/lib.rs`:
 - Memory management (dispose, finalizers)
 - Semantic similarity validation
 
+**Memory Stress Test (test/memory_stress_test.dart):**
+- Embeds 3000 items with memory tracking
+- Verifies thread pool configuration works
+- Checks memory stays bounded during large batches
+- Validates proper cleanup after dispose
+
 **Run specific test:**
 ```bash
 dart test --enable-experiment=native-assets -n "test name pattern"
+```
+
+**Run memory stress test:**
+```bash
+dart test --enable-experiment=native-assets test/memory_stress_test.dart -r expanded
 ```
 
 **Run with verbose output:**
@@ -262,6 +320,8 @@ dart test --enable-experiment=native-assets -r expanded
 - tokio: Async runtime
 - once_cell: Lazy static initialization
 - anyhow: Error handling
+- rayon: Thread pool for parallel computation (configurable)
+- num_cpus: CPU count detection for thread pool defaults
 
 **System Requirements:**
 - Rust toolchain 1.90.0 (pinned via rust-toolchain.toml)

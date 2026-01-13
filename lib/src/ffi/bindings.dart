@@ -19,6 +19,35 @@ const String _assetId = 'package:embedanythingindart/embedanything_dart';
 external int initRuntime();
 
 // ============================================================================
+// Thread Pool Configuration
+// ============================================================================
+
+/// Configure the global Rayon thread pool with a limited number of threads.
+///
+/// MUST be called BEFORE any embedding operations to take effect.
+/// If not called, Rayon uses num_cpus threads by default.
+///
+/// Parameters:
+/// - numThreads: Maximum number of threads (0 = use default/num_cpus)
+///
+/// Returns:
+/// - 0 on success
+/// - -1 if thread pool was already initialized (call came too late)
+/// - -2 on other errors
+@Native<Int32 Function(Size)>(
+  symbol: 'configure_thread_pool',
+  assetId: _assetId,
+)
+external int configureThreadPool(int numThreads);
+
+/// Get the current number of Rayon threads.
+@Native<Int32 Function()>(
+  symbol: 'get_thread_pool_size',
+  assetId: _assetId,
+)
+external int getThreadPoolSize();
+
+// ============================================================================
 // Error Handling
 // ============================================================================
 

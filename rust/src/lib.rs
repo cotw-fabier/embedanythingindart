@@ -82,6 +82,57 @@ pub extern "C" fn init_runtime() -> i32 {
 }
 
 // ============================================================================
+// Rayon Thread Pool Configuration
+// ============================================================================
+
+/// Configure the global Rayon thread pool with a limited number of threads.
+///
+/// MUST be called BEFORE any embedding operations to take effect.
+/// If not called, Rayon uses num_cpus threads by default.
+///
+/// # Parameters
+/// - num_threads: Maximum number of threads (0 = use default/num_cpus)
+///
+/// # Returns
+/// - 0 on success
+/// - -1 if thread pool was already initialized (call came too late)
+/// - -2 on other errors
+#[no_mangle]
+pub extern "C" fn configure_thread_pool(num_threads: usize) -> i32 {
+    match panic::catch_unwind(|| {
+        let threads = if num_threads == 0 {
+            num_cpus::get()
+        } else {
+            num_threads
+        };
+
+        match rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build_global()
+        {
+            Ok(()) => 0,
+            Err(_) => {
+                // Thread pool already initialized
+                set_last_error("THREAD_POOL_ERROR: Rayon thread pool already initialized. Call configure_thread_pool() before any embedding operations.");
+                -1
+            }
+        }
+    }) {
+        Ok(result) => result,
+        Err(_) => {
+            set_last_error("FFI_ERROR: Panic during thread pool configuration");
+            -2
+        }
+    }
+}
+
+/// Get the current number of Rayon threads.
+#[no_mangle]
+pub extern "C" fn get_thread_pool_size() -> i32 {
+    rayon::current_num_threads() as i32
+}
+
+// ============================================================================
 // Opaque Handle for Embedder
 // ============================================================================
 
