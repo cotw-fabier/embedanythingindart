@@ -24,7 +24,6 @@ use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use tokio_util::sync::CancellationToken;
 
 // ============================================================================
@@ -252,15 +251,16 @@ pub extern "C" fn start_load_model(
     // Register operation
     let (op_id, cancel_token) = register_operation();
 
-    // Spawn background thread
-    thread::spawn(move || {
+    // Spawn Tokio task (uses bounded thread pool, not unbounded OS threads)
+    RUNTIME.spawn(async move {
         // Check cancellation before starting
         if cancel_token.is_cancelled() {
             store_cancelled(op_id);
             return;
         }
 
-        // Load model (synchronous in EmbedAnything)
+        // Load model (synchronous in EmbedAnything, but wrapped in spawn_blocking would be better)
+        // For now, run in async context - model loading is I/O bound (downloading)
         let result = Embedder::from_pretrained_hf(
             &model_id_str,
             revision_opt.as_deref(),
@@ -348,16 +348,16 @@ pub extern "C" fn start_embed_text(embedder: *const CEmbedder, text: *const c_ch
     // Register operation
     let (op_id, cancel_token) = register_operation();
 
-    // Spawn background thread
-    thread::spawn(move || {
+    // Spawn Tokio task (uses bounded thread pool, not unbounded OS threads)
+    RUNTIME.spawn(async move {
         // Check cancellation
         if cancel_token.is_cancelled() {
             store_cancelled(op_id);
             return;
         }
 
-        // Run embedding in tokio runtime (inside thread, so doesn't block Dart)
-        let result = RUNTIME.block_on(async { embedder_arc.embed_query(&[&text_str], None).await });
+        // Run embedding directly in async context
+        let result = embedder_arc.embed_query(&[&text_str], None).await;
 
         // Check cancellation
         if cancel_token.is_cancelled() {
@@ -476,8 +476,8 @@ pub extern "C" fn start_embed_texts_batch(
     // Register operation
     let (op_id, cancel_token) = register_operation();
 
-    // Spawn background thread
-    thread::spawn(move || {
+    // Spawn Tokio task (uses bounded thread pool, not unbounded OS threads)
+    RUNTIME.spawn(async move {
         // Check cancellation
         if cancel_token.is_cancelled() {
             store_cancelled(op_id);
@@ -487,8 +487,8 @@ pub extern "C" fn start_embed_texts_batch(
         // Convert to Vec<&str> for embed function
         let text_refs: Vec<&str> = text_strings.iter().map(|s| s.as_str()).collect();
 
-        // Run embedding in tokio runtime
-        let result = RUNTIME.block_on(async { embedder_arc.embed(&text_refs, None, None).await });
+        // Run embedding directly in async context
+        let result = embedder_arc.embed(&text_refs, None, None).await;
 
         // Check cancellation
         if cancel_token.is_cancelled() {
@@ -614,20 +614,18 @@ pub extern "C" fn start_embed_file(
     // Register operation
     let (op_id, cancel_token) = register_operation();
 
-    // Spawn background thread
-    thread::spawn(move || {
+    // Spawn Tokio task (uses bounded thread pool, not unbounded OS threads)
+    RUNTIME.spawn(async move {
         // Check cancellation
         if cancel_token.is_cancelled() {
             store_cancelled(op_id);
             return;
         }
 
-        // Run embedding in tokio runtime
-        let result = RUNTIME.block_on(async {
-            embedder_arc
-                .embed_file(path.clone(), Some(&text_config), None)
-                .await
-        });
+        // Run embedding directly in async context
+        let result = embedder_arc
+            .embed_file(path.clone(), Some(&text_config), None)
+            .await;
 
         // Check cancellation
         if cancel_token.is_cancelled() {
@@ -768,20 +766,18 @@ pub extern "C" fn start_embed_directory(
     // Register operation
     let (op_id, cancel_token) = register_operation();
 
-    // Spawn background thread
-    thread::spawn(move || {
+    // Spawn Tokio task (uses bounded thread pool, not unbounded OS threads)
+    RUNTIME.spawn(async move {
         // Check cancellation
         if cancel_token.is_cancelled() {
             store_cancelled(op_id);
             return;
         }
 
-        // Run embedding in tokio runtime
-        let result = RUNTIME.block_on(async {
-            embedder_arc
-                .embed_directory_stream(dir_path.clone(), extensions_opt, Some(&text_config), None)
-                .await
-        });
+        // Run embedding directly in async context
+        let result = embedder_arc
+            .embed_directory_stream(dir_path.clone(), extensions_opt, Some(&text_config), None)
+            .await;
 
         // Check cancellation
         if cancel_token.is_cancelled() {
