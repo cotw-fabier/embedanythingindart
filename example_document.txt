@@ -1,0 +1,11 @@
+Machine Learning Fundamentals
+
+Machine learning enables computers to learn from data without explicit programming.
+It uses algorithms to identify patterns and make predictions.
+
+Key concepts include:
+- Supervised learning: Learning from labeled data
+- Unsupervised learning: Finding patterns in unlabeled data
+- Reinforcement learning: Learning through trial and error
+
+Applications span from recommendation systems to autonomous vehicles.

@@ -856,8 +856,17 @@ class EmbedAnything {
   /// This is the async version of [embedTextsBatch]. Use this in Flutter
   /// applications for batch processing without freezing the UI.
   ///
+  /// **Auto-chunking:** For large batches, texts are automatically processed
+  /// in chunks to prevent memory issues and system overload. The chunk size
+  /// is determined by [chunkSize] parameter, [ModelConfig.defaultBatchSize],
+  /// or defaults to 32.
+  ///
   /// Parameters:
   /// - [texts]: List of texts to embed
+  /// - [chunkSize]: Override the default batch chunk size. If not specified,
+  ///   uses [ModelConfig.defaultBatchSize] or 32.
+  /// - [onProgress]: Optional callback for progress updates. Called after
+  ///   each chunk completes with (completedCount, totalCount).
   ///
   /// Returns a [Future] that completes with a list of [EmbeddingResult]s.
   ///
@@ -868,20 +877,65 @@ class EmbedAnything {
   ///
   /// Example:
   /// ```dart
+  /// // Simple usage
   /// final results = await embedder.embedTextsBatchAsync([
   ///   'First text',
   ///   'Second text',
   ///   'Third text',
   /// ]);
   /// print('Generated ${results.length} embeddings');
+  ///
+  /// // With progress tracking for large batches
+  /// final results = await embedder.embedTextsBatchAsync(
+  ///   largeTextList,
+  ///   chunkSize: 50,
+  ///   onProgress: (done, total) => print('Progress: $done / $total'),
+  /// );
   /// ```
-  Future<List<EmbeddingResult>> embedTextsBatchAsync(List<String> texts) async {
+  Future<List<EmbeddingResult>> embedTextsBatchAsync(
+    List<String> texts, {
+    int? chunkSize,
+    void Function(int completed, int total)? onProgress,
+  }) async {
     _checkDisposed();
 
     if (texts.isEmpty) {
       return [];
     }
 
+    // Determine effective chunk size
+    final effectiveChunkSize = chunkSize ?? _config?.defaultBatchSize ?? 32;
+
+    // If batch is small enough, process directly without chunking overhead
+    if (texts.length <= effectiveChunkSize) {
+      final results = await _embedTextsBatchAsyncInternal(texts);
+      onProgress?.call(texts.length, texts.length);
+      return results;
+    }
+
+    // Process in chunks for large batches
+    final results = <EmbeddingResult>[];
+
+    for (int i = 0; i < texts.length; i += effectiveChunkSize) {
+      final end = (i + effectiveChunkSize < texts.length)
+          ? i + effectiveChunkSize
+          : texts.length;
+      final chunk = texts.sublist(i, end);
+
+      final chunkResults = await _embedTextsBatchAsyncInternal(chunk);
+      results.addAll(chunkResults);
+
+      // Report progress after each chunk
+      onProgress?.call(results.length, texts.length);
+    }
+
+    return results;
+  }
+
+  /// Internal method to embed a batch of texts without chunking.
+  Future<List<EmbeddingResult>> _embedTextsBatchAsyncInternal(
+    List<String> texts,
+  ) async {
     // Convert Dart strings to C strings
     final cStrings = texts.map((t) => stringToCString(t)).toList();
     final cStringsArray = malloc<Pointer<Utf8>>(texts.length);

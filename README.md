@@ -189,6 +189,26 @@ for (var i = 0; i < results.length; i++) {
 
 For comprehensive benchmarks, see [benchmark/results.md](benchmark/results.md).
 
+#### Async Batch Processing with Progress Tracking
+
+For large batches (100+ texts), use the async API with progress tracking:
+
+```dart
+final results = await embedder.embedTextsBatchAsync(
+  largeTextList,
+  chunkSize: 50,  // Optional: override default (32)
+  onProgress: (completed, total) {
+    print('Progress: $completed / $total');
+  },
+);
+```
+
+**Migration Note (v0.2.0+):** `embedTextsBatchAsync()` now automatically chunks
+large batches to prevent memory issues and system overload. This is a behavior
+change - previous versions sent all texts to Rust at once. The chunking uses
+`ModelConfig.defaultBatchSize` (default: 32). To process a specific chunk size,
+pass the `chunkSize` parameter.
+
 ### Computing Similarity
 
 ```dart
