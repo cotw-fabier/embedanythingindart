@@ -9,9 +9,21 @@ edition = "2021"
 # cdylib: For all other platforms (dynamic linking)
 crate-type = ["staticlib", "cdylib"]
 
+[features]
+default = []
+# GPU acceleration features
+metal = ["embed_anything/metal", "candle-core/metal"]
+cuda = ["embed_anything/cuda", "candle-core/cuda"]
+# CPU optimization features
+accelerate = ["embed_anything/accelerate", "candle-core/accelerate"]
+mkl = ["embed_anything/mkl", "candle-core/mkl"]
+
 [dependencies]
 # EmbedAnything core library from GitHub
 embed_anything = { git = "https://github.com/StarlightSearch/EmbedAnything.git", package = "embed_anything", default-features = false }
+
+# Candle core for device detection (version must match embed_anything's dependency)
+candle-core = "0.9.1"
 
 # Async runtime (required by embed_anything)
 tokio = { version = "1.45", features = ["rt", "rt-multi-thread", "sync", "macros"] }

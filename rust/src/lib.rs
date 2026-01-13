@@ -16,6 +16,9 @@ use tokio::runtime::Runtime;
 pub mod async_embed;
 pub use async_embed::*;
 
+// Device detection module - provides runtime device queries
+pub mod device;
+
 // ============================================================================
 // Thread-Local Error Storage
 // ============================================================================
@@ -985,6 +988,49 @@ pub extern "C" fn free_embed_data_batch(batch: *mut CEmbedDataBatch) {
                 }
             }
         }
+    }
+}
+
+// ============================================================================
+// Device Query Functions
+// ============================================================================
+
+/// Get the currently active device type.
+///
+/// Returns:
+/// - 0: CPU
+/// - 1: CUDA (NVIDIA GPU)
+/// - 2: Metal (Apple GPU)
+///
+/// The device is auto-selected at model load time based on availability:
+/// 1. Metal (on macOS if available)
+/// 2. CUDA (on Linux/Windows if available)
+/// 3. CPU (fallback, always available)
+#[no_mangle]
+pub extern "C" fn get_active_device() -> i32 {
+    device::get_active_device_type() as i32
+}
+
+/// Check if a specific device type is available.
+///
+/// Parameters:
+/// - device_type: 0=CPU, 1=CUDA, 2=Metal
+///
+/// Returns:
+/// - 1: Device is available
+/// - 0: Device is not available
+#[no_mangle]
+pub extern "C" fn is_device_available(device_type: i32) -> i32 {
+    let requested = match device_type {
+        0 => device::ComputeDevice::Cpu,
+        1 => device::ComputeDevice::Cuda,
+        2 => device::ComputeDevice::Metal,
+        _ => return 0, // Invalid device type
+    };
+    if device::is_device_available(requested) {
+        1
+    } else {
+        0
     }
 }
 

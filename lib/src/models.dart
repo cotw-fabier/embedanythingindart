@@ -134,3 +134,70 @@ enum ModelDtype {
   /// Rust layer and should not be used directly by applications.
   final int value;
 }
+
+/// Available compute device types for embedding operations.
+///
+/// The library automatically selects the best available device at model
+/// load time based on compiled features and hardware availability:
+/// 1. Metal (on macOS/iOS if GPU is available)
+/// 2. CUDA (on Linux/Windows if NVIDIA GPU is available)
+/// 3. CPU (fallback, always available)
+///
+/// Use [EmbedAnything.getActiveDevice] to query which device is being used,
+/// or [EmbedAnything.isDeviceAvailable] to check availability.
+///
+/// Example:
+/// ```dart
+/// // Check what device will be used for embedding
+/// final device = EmbedAnything.getActiveDevice();
+/// print('Using: $device'); // e.g., "ComputeDevice.metal"
+///
+/// // Check if CUDA is available
+/// if (EmbedAnything.isDeviceAvailable(ComputeDevice.cuda)) {
+///   print('CUDA acceleration available!');
+/// }
+/// ```
+///
+/// Note: Device selection happens at compile time based on platform:
+/// - macOS/iOS: Metal + Accelerate features enabled
+/// - Linux/Windows: MKL + CUDA (if toolkit detected) features enabled
+enum ComputeDevice {
+  /// CPU computation (always available).
+  ///
+  /// This is the fallback device used when no GPU acceleration is available.
+  /// CPU operations can be optimized with:
+  /// - Intel MKL on Linux/Windows
+  /// - Apple Accelerate on macOS
+  cpu(0),
+
+  /// NVIDIA CUDA GPU acceleration.
+  ///
+  /// Available on Linux and Windows systems with:
+  /// - NVIDIA GPU hardware
+  /// - CUDA toolkit installed (detected at build time)
+  ///
+  /// Provides significant speedup for embedding operations, especially
+  /// for batch processing.
+  cuda(1),
+
+  /// Apple Metal GPU acceleration.
+  ///
+  /// Available on macOS and iOS with Apple Silicon or AMD GPU.
+  /// Automatically used on Apple platforms when available.
+  metal(2);
+
+  const ComputeDevice(this.value);
+
+  /// Numeric value passed to Rust FFI.
+  final int value;
+
+  /// Create a ComputeDevice from its numeric value.
+  ///
+  /// Returns [cpu] for unknown values.
+  static ComputeDevice fromValue(int value) {
+    return ComputeDevice.values.firstWhere(
+      (d) => d.value == value,
+      orElse: () => ComputeDevice.cpu,
+    );
+  }
+}

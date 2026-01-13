@@ -213,3 +213,38 @@ external void freeEmbedData(Pointer<CEmbedData> data);
   assetId: _assetId,
 )
 external void freeEmbedDataBatch(Pointer<CEmbedDataBatch> batch);
+
+// ============================================================================
+// Device Query Functions
+// ============================================================================
+
+/// Get the currently active compute device type.
+///
+/// Returns:
+/// - 0: CPU
+/// - 1: CUDA (NVIDIA GPU)
+/// - 2: Metal (Apple GPU)
+///
+/// The device is auto-selected based on compiled features and availability:
+/// 1. Metal (on macOS if available)
+/// 2. CUDA (on Linux/Windows if available)
+/// 3. CPU (fallback, always available)
+@Native<Int32 Function()>(
+  symbol: 'get_active_device',
+  assetId: _assetId,
+)
+external int getActiveDevice();
+
+/// Check if a specific device type is available.
+///
+/// Parameters:
+/// - deviceType: 0=CPU, 1=CUDA, 2=Metal
+///
+/// Returns:
+/// - 1: Device is available
+/// - 0: Device is not available
+@Native<Int32 Function(Int32)>(
+  symbol: 'is_device_available',
+  assetId: _assetId,
+)
+external int isDeviceAvailable(int deviceType);

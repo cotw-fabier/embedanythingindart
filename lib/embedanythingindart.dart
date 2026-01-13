@@ -11,6 +11,13 @@
 /// - Cosine similarity utilities
 /// - **Async operations** for non-blocking Flutter UI (embedTextAsync, etc.)
 /// - **Cancellable operations** via AsyncEmbeddingOperation
+/// - **GPU acceleration** - Metal (macOS), CUDA (Linux/Windows), with CPU fallback
+///
+/// GPU acceleration is automatically enabled based on platform and available hardware:
+/// - macOS/iOS: Metal GPU + Accelerate CPU optimization
+/// - Linux/Windows: CUDA GPU (if toolkit installed) + MKL CPU optimization
+///
+/// Use [EmbedAnything.getActiveDevice] to check which device is being used.
 library;
 
 export 'src/chunk_embedding.dart';

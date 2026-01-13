@@ -6,6 +6,16 @@ void main() async {
   print('=== EmbedAnything Dart Example ===\n');
 
   // ============================================================================
+  // Device Detection - Show what compute device is being used
+  // ============================================================================
+  print('--- Device Information ---');
+  print('Active device: ${EmbedAnything.getActiveDevice()}');
+  print('CPU available: ${EmbedAnything.isDeviceAvailable(ComputeDevice.cpu)}');
+  print('CUDA available: ${EmbedAnything.isDeviceAvailable(ComputeDevice.cuda)}');
+  print('Metal available: ${EmbedAnything.isDeviceAvailable(ComputeDevice.metal)}');
+  print('');
+
+  // ============================================================================
   // Example 1: Loading Models with Different Configurations
   // ============================================================================
   print('--- Example 1: Loading Models ---');

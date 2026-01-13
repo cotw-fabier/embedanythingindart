@@ -692,6 +692,60 @@ class EmbedAnything {
   }
 
   // ==========================================================================
+  // DEVICE QUERY METHODS - Check compute device availability
+  // ==========================================================================
+
+  /// Get the currently active compute device.
+  ///
+  /// This returns the device that will be used for all embedding operations.
+  /// The device is automatically selected at model load time based on
+  /// compiled features and hardware availability:
+  ///
+  /// 1. Metal (on macOS/iOS if GPU is available)
+  /// 2. CUDA (on Linux/Windows if NVIDIA GPU is available)
+  /// 3. CPU (fallback, always available)
+  ///
+  /// Note: MKL and Accelerate are CPU optimizations that don't change the
+  /// device type - they speed up matrix operations but still use CPU.
+  ///
+  /// Example:
+  /// ```dart
+  /// final device = EmbedAnything.getActiveDevice();
+  /// print('Using: $device'); // e.g., "ComputeDevice.metal"
+  ///
+  /// if (device == ComputeDevice.cuda) {
+  ///   print('GPU acceleration enabled!');
+  /// }
+  /// ```
+  static ComputeDevice getActiveDevice() {
+    _initializeRuntime();
+    return ComputeDevice.fromValue(ffi.getActiveDevice());
+  }
+
+  /// Check if a specific compute device is available.
+  ///
+  /// Returns `true` if the device can be used for computation, `false` otherwise.
+  ///
+  /// This is useful for checking hardware capabilities before loading models
+  /// or for displaying device information in your application.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Check available acceleration
+  /// if (EmbedAnything.isDeviceAvailable(ComputeDevice.cuda)) {
+  ///   print('CUDA GPU acceleration available!');
+  /// } else if (EmbedAnything.isDeviceAvailable(ComputeDevice.metal)) {
+  ///   print('Metal GPU acceleration available!');
+  /// } else {
+  ///   print('Using CPU (consider installing CUDA toolkit for better performance)');
+  /// }
+  /// ```
+  static bool isDeviceAvailable(ComputeDevice device) {
+    _initializeRuntime();
+    return ffi.isDeviceAvailable(device.value) == 1;
+  }
+
+  // ==========================================================================
   // ASYNC METHODS - Non-blocking operations for Flutter UI
   // ==========================================================================
 
